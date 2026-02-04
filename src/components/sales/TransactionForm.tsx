@@ -744,7 +744,7 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
                     value={charge.reason}
                     onChange={(e) => updateAdditionalCharge(index, 'reason', e.target.value)}
                     placeholder="Reason (e.g., Packaging, Fuel, Delivery)"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   />
                   <input
                     type="number"
@@ -753,7 +753,7 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
                     value={charge.amount || ''}
                     onChange={(e) => updateAdditionalCharge(index, 'amount', e.target.value ? parseFloat(e.target.value) : 0)}
                     placeholder="Amount"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                   />
                 </div>
                 <button

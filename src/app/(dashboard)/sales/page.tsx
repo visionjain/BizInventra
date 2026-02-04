@@ -479,83 +479,155 @@ export default function SalesPage() {
 
             <div className="space-y-6">
               {/* Transaction Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Date</p>
-                  <p className="font-medium text-gray-900">
-                    {new Date(viewingTransaction.transactionDate).toLocaleString()}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 uppercase mb-1">Date & Time</p>
+                  <p className="font-semibold text-gray-900">
+                    {new Date(viewingTransaction.transactionDate).toLocaleString('en-IN', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Customer</p>
-                  <p className="font-medium text-gray-900">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 uppercase mb-1">Customer</p>
+                  <p className="font-semibold text-gray-900">
                     {viewingTransaction.customerName || <span className="text-gray-500 italic">Walk-in Customer</span>}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Payment Method</p>
-                  <p className="font-medium text-gray-900 capitalize">{viewingTransaction.paymentMethod}</p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-xs text-gray-500 uppercase mb-1">Payment Method</p>
+                  <p className="font-semibold text-gray-900 capitalize">{viewingTransaction.paymentMethod}</p>
                 </div>
-                {viewingTransaction.notes && (
-                  <div className="col-span-2">
-                    <p className="text-sm text-gray-600">Notes</p>
-                    <p className="font-medium text-gray-900">{viewingTransaction.notes}</p>
-                  </div>
-                )}
               </div>
+
+              {viewingTransaction.notes && (
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                  <p className="text-xs text-blue-700 uppercase font-medium mb-1">Notes</p>
+                  <p className="text-gray-900">{viewingTransaction.notes}</p>
+                </div>
+              )}
 
               {/* Items */}
               <div>
-                <h3 className="text-lg font-semibold mb-3">Items</h3>
+                <h3 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
+                  <Package className="w-5 h-5 mr-2 text-blue-600" />
+                  Items Sold
+                </h3>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price/Unit</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {viewingTransaction.items?.map((item: any, index: number) => (
-                        <tr key={index}>
-                          <td className="px-4 py-3 text-sm text-gray-900">{item.itemName || 'Unknown Item'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">{item.quantity}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 text-right">₹{item.pricePerUnit.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
-                            ₹{(item.quantity * item.pricePerUnit).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
+                      {viewingTransaction.items?.map((item: any, index: number) => {
+                        const itemData = items.find((i: any) => (i._id || i.id).toString() === item.itemId?.toString());
+                        return (
+                          <tr key={index}>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="font-medium text-gray-900">{itemData?.name || item.itemName || 'Item'}</div>
+                              {item.unit && <div className="text-xs text-gray-500">{item.unit}</div>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-center font-medium">{item.quantity}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 text-right">₹{item.pricePerUnit?.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 text-right font-semibold">
+                              ₹{((item.quantity || 0) * (item.pricePerUnit || 0)).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-gray-50">
+                        <td colSpan={3} className="px-4 py-3 text-sm font-medium text-gray-700 text-right">Items Subtotal:</td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                          ₹{viewingTransaction.items?.reduce((sum: number, item: any) => 
+                            sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0).toFixed(2)}
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
 
+              {/* Additional Charges */}
+              {viewingTransaction.additionalCharges && viewingTransaction.additionalCharges.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
+                    <DollarSign className="w-5 h-5 mr-2 text-amber-600" />
+                    Additional Charges
+                  </h3>
+                  <div className="border border-amber-200 rounded-lg overflow-hidden bg-amber-50">
+                    <table className="min-w-full">
+                      <tbody className="divide-y divide-amber-200">
+                        {viewingTransaction.additionalCharges.map((charge: any, index: number) => (
+                          <tr key={index}>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              <div className="font-medium">{charge.reason || charge.description || 'Additional Charge'}</div>
+                              {charge.notes && <div className="text-xs text-gray-600 mt-1">{charge.notes}</div>}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-amber-900 text-right">
+                              ₹{charge.amount?.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-amber-100">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700 text-right">Total Additional Charges:</td>
+                          <td className="px-4 py-3 text-sm font-bold text-amber-900 text-right">
+                            ₹{viewingTransaction.totalAdditionalCharges?.toFixed(2) || '0.00'}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Summary */}
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Total Amount:</span>
-                  <span className="font-semibold text-gray-900">₹{viewingTransaction.totalAmount?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-700">Payment Received:</span>
-                  <span className="font-semibold text-green-600">₹{viewingTransaction.paymentReceived?.toFixed(2)}</span>
-                </div>
-                {viewingTransaction.totalProfit !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Profit:</span>
-                    <span className={`font-semibold ${viewingTransaction.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ₹{viewingTransaction.totalProfit?.toFixed(2)}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Payment Summary</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-gray-700">
+                    <span>Items Total:</span>
+                    <span className="font-semibold">₹{(viewingTransaction.items?.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0) || 0).toFixed(2)}</span>
+                  </div>
+                  {viewingTransaction.totalAdditionalCharges > 0 && (
+                    <div className="flex justify-between text-gray-700">
+                      <span>Additional Charges:</span>
+                      <span className="font-semibold text-amber-700">₹{viewingTransaction.totalAdditionalCharges?.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-blue-300">
+                    <span>Total Amount:</span>
+                    <span>₹{((viewingTransaction.items?.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0) || 0) + (viewingTransaction.totalAdditionalCharges || 0)).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-700">
+                    <span>Payment Received:</span>
+                    <span className="font-semibold text-green-600">₹{viewingTransaction.paymentReceived?.toFixed(2)}</span>
+                  </div>
+                  {viewingTransaction.totalProfit !== undefined && (
+                    <div className="flex justify-between text-gray-700">
+                      <span>Profit Earned:</span>
+                      <span className={`font-semibold ${viewingTransaction.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ₹{viewingTransaction.totalProfit?.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold pt-3 border-t border-blue-300">
+                    <span className="text-gray-900">Outstanding Balance:</span>
+                    <span className={`${viewingTransaction.balanceAmount > 0 ? 'text-red-600' : viewingTransaction.balanceAmount < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                      {viewingTransaction.balanceAmount < 0 && '- '}₹{Math.abs(viewingTransaction.balanceAmount || 0).toFixed(2)}
                     </span>
                   </div>
-                )}
-                <div className="flex justify-between pt-2 border-t border-gray-300">
-                  <span className="text-gray-900 font-medium">Balance:</span>
-                  <span className={`font-bold ${viewingTransaction.balanceAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    ₹{viewingTransaction.balanceAmount?.toFixed(2)}
-                  </span>
+                  {viewingTransaction.balanceAmount < 0 && (
+                    <p className="text-xs text-green-700 text-right">Customer has advance payment</p>
+                  )}
+                  {viewingTransaction.balanceAmount > 0 && (
+                    <p className="text-xs text-red-700 text-right">Customer owes this amount</p>
+                  )}
                 </div>
               </div>
             </div>
