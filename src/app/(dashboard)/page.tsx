@@ -13,18 +13,27 @@ interface DashboardStats {
     profit: number;
     transactions: number;
     itemsSold: number;
+    additionalCharges: number;
+    returns: number;
+    returnsProfit: number;
   };
   monthly: {
     sales: number;
     profit: number;
     transactions: number;
     itemsSold: number;
+    additionalCharges: number;
+    returns: number;
+    returnsProfit: number;
   };
   yearly: {
     sales: number;
     profit: number;
     transactions: number;
     itemsSold: number;
+    additionalCharges: number;
+    returns: number;
+    returnsProfit: number;
   };
   inventory: {
     totalItems: number;
@@ -50,9 +59,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [timePeriod, setTimePeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [stats, setStats] = useState<DashboardStats>({
-    weekly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0 },
-    monthly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0 },
-    yearly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0 },
+    weekly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    monthly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    yearly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
     inventory: { totalItems: 0, lowStock: 0, totalValue: 0 },
     customers: { total: 0, outstanding: 0 },
   });
@@ -298,7 +307,7 @@ export default function DashboardPage() {
                       <p className="text-3xl font-bold text-gray-900 mt-2">
                         ₹{stats[timePeriod].sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">{stats[timePeriod].transactions} transactions</p>
+                      <p className="text-xs text-gray-500 mt-1">{stats[timePeriod].transactions} transactions • Gross sales</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                       <DollarSign className="w-6 h-6 text-blue-600" />
@@ -315,7 +324,7 @@ export default function DashboardPage() {
                       <p className="text-3xl font-bold text-green-600 mt-2">
                         ₹{stats[timePeriod].profit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Realized profit</p>
+                      <p className="text-xs text-gray-500 mt-1">Gross profit</p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                       <TrendingUp className="w-6 h-6 text-green-600" />
@@ -345,6 +354,57 @@ export default function DashboardPage() {
                     </div>
                     <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                       <Package className="w-6 h-6 text-orange-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {timePeriod === 'weekly' ? 'Charges (Last 7 Days)' : timePeriod === 'monthly' ? 'Charges This Month' : 'Charges This Year'}
+                      </p>
+                      <p className="text-3xl font-bold text-amber-600 mt-2">
+                        ₹{stats[timePeriod].additionalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Additional charges income</p>
+                    </div>
+                    <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {timePeriod === 'weekly' ? 'Returns (Last 7 Days)' : timePeriod === 'monthly' ? 'Returns This Month' : 'Returns This Year'}
+                      </p>
+                      <p className="text-3xl font-bold text-red-600 mt-2">
+                        ₹{stats[timePeriod].returns.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Sales returned</p>
+                    </div>
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                      <TrendingDown className="w-6 h-6 text-red-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {timePeriod === 'weekly' ? 'Net Sales (Last 7 Days)' : timePeriod === 'monthly' ? 'Net Sales This Month' : 'Net Sales This Year'}
+                      </p>
+                      <p className="text-3xl font-bold text-indigo-600 mt-2">
+                        ₹{(stats[timePeriod].sales - stats[timePeriod].returns).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Sales - Returns</p>
+                    </div>
+                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                      <BarChart3 className="w-6 h-6 text-indigo-600" />
                     </div>
                   </div>
                 </div>

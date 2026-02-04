@@ -73,39 +73,80 @@ export default function SalesPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Build query with date range for accurate stats
-      const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
+      const isOffline = !navigator.onLine;
       
-      // Load all data in parallel for faster loading
-      const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
-        fetch(txUrl),
-        fetch('/api/returns'),
-        fetch('/api/items'),
-        fetch('/api/customers')
-      ]);
+      // Try online first
+      if (!isOffline) {
+        // Build query with date range for accurate stats
+        const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
+        
+        // Load all data in parallel for faster loading
+        const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
+          fetch(txUrl),
+          fetch('/api/returns'),
+          fetch('/api/items'),
+          fetch('/api/customers')
+        ]);
 
-      if (txResponse.ok) {
-        const txData = await txResponse.json();
-        setTransactions(txData.transactions || []);
-        // Save server-calculated stats (accurate for ALL transactions in date range)
-        if (txData.stats) {
-          setStats(txData.stats);
+        if (txResponse.ok) {
+          const txData = await txResponse.json();
+          setTransactions(txData.transactions || []);
+          // Save server-calculated stats (accurate for ALL transactions in date range)
+          if (txData.stats) {
+            setStats(txData.stats);
+          }
         }
-      }
 
-      if (returnsResponse.ok) {
-        const returnsData = await returnsResponse.json();
-        setReturns(returnsData.returns || []);
-      }
+        if (returnsResponse.ok) {
+          const returnsData = await returnsResponse.json();
+          setReturns(returnsData.returns || []);
+        }
 
-      if (itemsResponse.ok) {
-        const itemsData = await itemsResponse.json();
-        setItems(itemsData.items || []);
-      }
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          setItems(itemsData.items || []);
+        }
 
-      if (customersResponse.ok) {
-        const customersData = await customersResponse.json();
-        setCustomers(customersData.customers || []);
+        if (customersResponse.ok) {
+          const customersData = await customersResponse.json();
+          setCustomers(customersData.customers || []);
+        }
+        return;
+      }
+      
+      // Fallback to offline SQLite (only on native)
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      if (platform === 'android' || platform === 'ios') {
+        const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
+        
+        const [offlineTxs, offlineItems, offlineCustomers] = await Promise.all([
+          getTransactionsOffline(user!.id),
+          getItemsOffline(user!.id),
+          getCustomersOffline(user!.id)
+        ]);
+        
+        setTransactions(offlineTxs);
+        setItems(offlineItems);
+        setCustomers(offlineCustomers);
+        setReturns([]); // Returns not supported offline yet
+        
+        // Calculate stats from offline transactions
+        const totalSales = offlineTxs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0);
+        const totalReceived = offlineTxs.reduce((sum, tx) => sum + tx.paymentReceived, 0);
+        const totalOutstanding = offlineTxs.reduce((sum, tx) => sum + tx.balanceAmount, 0);
+        const totalAdditionalCharges = offlineTxs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0);
+        const totalProfit = offlineTxs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0);
+        
+        setStats({
+          totalSales,
+          totalReceived,
+          totalOutstanding,
+          totalAdditionalCharges,
+          totalProfit
+        });
+        
+        console.log('Loaded sales data from offline storage');
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -117,37 +158,61 @@ export default function SalesPage() {
   const handleSubmit = async (formData: any) => {
     setIsSubmitting(true);
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      const isOffline = !navigator.onLine;
       const isEditing = !!editingTransaction;
-      const url = isEditing 
-        ? `/api/transactions/${editingTransaction._id || editingTransaction.id}`
-        : '/api/transactions';
-      const method = isEditing ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      // Try online save
+      if (!isOffline) {
+        const url = isEditing 
+          ? `/api/transactions/${editingTransaction._id || editingTransaction.id}`
+          : '/api/transactions';
+        const method = isEditing ? 'PUT' : 'POST';
 
-      if (response.ok) {
-        const data = await response.json();
-        if (isEditing) {
-          // Update existing transaction in store
-          setTransactions(transactions.map((t: any) => 
-            (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
-              ? data.transaction 
-              : t
-          ));
-        } else {
-          addTransaction(data.transaction);
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (isEditing) {
+            // Update existing transaction in store
+            setTransactions(transactions.map((t: any) => 
+              (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
+                ? data.transaction 
+                : t
+            ));
+          } else {
+            addTransaction(data.transaction);
+          }
+          setShowForm(false);
+          setEditingTransaction(null);
+          // Reload to get updated balances and stock
+          loadData();
+          return;
         }
+      }
+
+      // Fallback to offline save (native only, only for new transactions)
+      if (isNative && !isEditing) {
+        const { saveTransactionOffline } = await import('@/lib/db/sqlite');
+        const transactionId = await saveTransactionOffline(user!.id, formData);
+        const newTransaction = { ...formData, id: transactionId, _id: transactionId };
+        addTransaction(newTransaction);
         setShowForm(false);
-        setEditingTransaction(null);
-        // Reload to get updated balances and stock
+        // Reload to get updated local data
         loadData();
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Failed to save transaction');
+        alert('Sale saved offline. Will sync when online.');
+      } else if (isOffline) {
+        if (isEditing) {
+          alert('Cannot edit transactions offline. Please connect to internet.');
+        } else {
+          alert('Cannot save transaction offline on web. Please check your connection.');
+        }
       }
     } catch (error) {
       console.error('Failed to save transaction:', error);

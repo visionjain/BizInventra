@@ -66,10 +66,24 @@ export default function CustomersPage() {
   const loadCustomers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/customers');
-      if (response.ok) {
-        const data = await response.json();
-        setCustomers(data.customers || []);
+      // Try online first
+      if (navigator.onLine) {
+        const response = await fetch('/api/customers');
+        if (response.ok) {
+          const data = await response.json();
+          setCustomers(data.customers || []);
+          return;
+        }
+      }
+      
+      // Fallback to offline SQLite (only on native)
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      if (platform === 'android' || platform === 'ios') {
+        const { getCustomersOffline } = await import('@/lib/db/sqlite');
+        const offlineCustomers = await getCustomersOffline(user!.id);
+        setCustomers(offlineCustomers);
+        console.log('Loaded customers from offline storage');
       }
     } catch (error) {
       console.error('Failed to load customers:', error);
@@ -81,34 +95,74 @@ export default function CustomersPage() {
   const handleSubmit = async (formData: { name: string; phoneNumber: string; outstandingBalance: number }) => {
     setIsSubmitting(true);
     try {
-      if (editingCustomer) {
-        const response = await fetch(`/api/customers/${(editingCustomer as any)._id || editingCustomer.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      const isOffline = !navigator.onLine;
 
-        if (response.ok) {
-          const data = await response.json();
-          updateCustomer(editingCustomer.id, data.customer);
+      if (editingCustomer) {
+        const customerId = (editingCustomer as any)._id || editingCustomer.id;
+        
+        // Try online update
+        if (!isOffline) {
+          const response = await fetch(`/api/customers/${customerId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            updateCustomer(editingCustomer.id, data.customer);
+            setShowForm(false);
+            setEditingCustomer(null);
+            return;
+          }
+        }
+        
+        // Fallback to offline update (native only)
+        if (isNative) {
+          const { updateCustomerOffline } = await import('@/lib/db/sqlite');
+          await updateCustomerOffline(user!.id, customerId, formData);
+          updateCustomer(editingCustomer.id, { ...editingCustomer, ...formData });
           setShowForm(false);
           setEditingCustomer(null);
+          alert('Customer updated offline. Will sync when online.');
+        } else {
+          alert('Cannot update customer offline on web. Please check your connection.');
         }
       } else {
-        const response = await fetch('/api/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+        // Try online create
+        if (!isOffline) {
+          const response = await fetch('/api/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          addCustomer(data.customer);
+          if (response.ok) {
+            const data = await response.json();
+            addCustomer(data.customer);
+            setShowForm(false);
+            return;
+          }
+        }
+        
+        // Fallback to offline create (native only)
+        if (isNative) {
+          const { saveCustomerOffline } = await import('@/lib/db/sqlite');
+          const customerId = await saveCustomerOffline(user!.id, formData);
+          const newCustomer = { ...formData, id: customerId, _id: customerId };
+          addCustomer(newCustomer);
           setShowForm(false);
+          alert('Customer added offline. Will sync when online.');
+        } else {
+          alert('Cannot add customer offline on web. Please check your connection.');
         }
       }
     } catch (error) {
       console.error('Failed to save customer:', error);
+      alert('Failed to save customer.');
     } finally {
       setIsSubmitting(false);
     }

@@ -88,10 +88,24 @@ export default function ItemsPage() {
   const loadItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/items');
-      if (response.ok) {
-        const data = await response.json();
-        setItems(data.items || []);
+      // Try online first
+      if (navigator.onLine) {
+        const response = await fetch('/api/items');
+        if (response.ok) {
+          const data = await response.json();
+          setItems(data.items || []);
+          return;
+        }
+      }
+      
+      // Fallback to offline SQLite (only on native)
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      if (platform === 'android' || platform === 'ios') {
+        const { getItemsOffline } = await import('@/lib/db/sqlite');
+        const offlineItems = await getItemsOffline(user!.id);
+        setItems(offlineItems);
+        console.log('Loaded items from offline storage');
       }
     } catch (error) {
       console.error('Failed to load items:', error);
@@ -103,41 +117,72 @@ export default function ItemsPage() {
   const handleSubmit = async (formData: { name: string; buyPrice: number; sellPrice: number; quantity: number; unit: ItemUnit; imageUrl?: string }) => {
     setIsSubmitting(true);
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      const isOffline = !navigator.onLine;
+
       if (editingItem) {
         const itemId = editingItem._id || editingItem.id;
-        const response = await fetch(`/api/items/${itemId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+        
+        // Try online update
+        if (!isOffline) {
+          const response = await fetch(`/api/items/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
 
-        if (response.ok) {
+          if (response.ok) {
+            setShowForm(false);
+            setEditingItem(null);
+            await loadItems();
+            alert('Item updated successfully!');
+            return;
+          }
+        }
+        
+        // Fallback to offline update (native only)
+        if (isNative) {
+          const { updateItemOffline } = await import('@/lib/db/sqlite');
+          await updateItemOffline(user!.id, itemId, formData);
           setShowForm(false);
           setEditingItem(null);
-          // Reload items to get updated data
           await loadItems();
-          alert('Item updated successfully!');
+          alert('Item updated offline. Will sync when online.');
         } else {
-          const errorData = await response.json();
-          alert(`Failed to update item: ${errorData.error || 'Unknown error'}`);
+          alert('Cannot update item offline on web. Please check your connection.');
         }
       } else {
-        const response = await fetch('/api/items', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+        // Try online create
+        if (!isOffline) {
+          const response = await fetch('/api/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          addItem(data.item);
+          if (response.ok) {
+            const data = await response.json();
+            addItem(data.item);
+            setShowForm(false);
+            await loadItems();
+            alert('Item added successfully!');
+            return;
+          }
+        }
+        
+        // Fallback to offline create (native only)
+        if (isNative) {
+          const { saveItemOffline } = await import('@/lib/db/sqlite');
+          const itemId = await saveItemOffline(user!.id, formData);
+          const newItem = { ...formData, id: itemId, _id: itemId };
+          addItem(newItem);
           setShowForm(false);
-          // Reload to ensure consistency
           await loadItems();
-          alert('Item added successfully!');
+          alert('Item added offline. Will sync when online.');
         } else {
-          const errorData = await response.json();
-          alert(`Failed to add item: ${errorData.error || 'Unknown error'}`);
+          alert('Cannot add item offline on web. Please check your connection.');
         }
       }
     } catch (error) {
@@ -153,14 +198,32 @@ export default function ItemsPage() {
 
     try {
       const itemId = typeof id === 'object' ? id.toString() : id;
-      const response = await fetch(`/api/items/${itemId}`, {
-        method: 'DELETE',
-      });
+      const isOffline = !navigator.onLine;
+      
+      // Try online delete
+      if (!isOffline) {
+        const response = await fetch(`/api/items/${itemId}`, {
+          method: 'DELETE',
+        });
 
-      if (response.ok) {
+        if (response.ok) {
+          deleteItem(itemId);
+          await loadItems();
+          return;
+        }
+      }
+      
+      // Fallback to offline delete (native only)
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      if (platform === 'android' || platform === 'ios') {
+        const { deleteItemOffline } = await import('@/lib/db/sqlite');
+        await deleteItemOffline(user!.id, itemId);
         deleteItem(itemId);
-        // Reload items to ensure UI is in sync
         await loadItems();
+        alert('Item deleted offline. Will sync when online.');
+      } else {
+        alert('Cannot delete item offline on web. Please check your connection.');
       }
     } catch (error) {
       console.error('Failed to delete item:', error);

@@ -1,4 +1,4 @@
-// Simplified sync service for browser/mobile (using IndexedDB via localStorage for now)
+// Comprehensive sync service for SQLite → MongoDB synchronization
 export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'error';
 
 export interface SyncResult {
@@ -12,6 +12,7 @@ class SyncService {
   private isOnline: boolean = true;
   private syncInProgress: boolean = false;
   private syncCallbacks: Array<(status: SyncStatus) => void> = [];
+  private autoSyncEnabled: boolean = true;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -23,8 +24,9 @@ class SyncService {
 
   private handleOnlineStatusChange(online: boolean) {
     this.isOnline = online;
-    if (online && !this.syncInProgress) {
+    if (online && !this.syncInProgress && this.autoSyncEnabled) {
       // Auto-sync when coming back online
+      console.log('Device is online, starting auto-sync...');
       this.syncAll().catch(console.error);
     }
   }
@@ -60,75 +62,211 @@ class SyncService {
       };
     }
 
+    // Check if we're on native platform
+    const { Capacitor } = await import('@capacitor/core');
+    const platform = Capacitor.getPlatform();
+    if (platform !== 'android' && platform !== 'ios') {
+      return {
+        success: true,
+        itemsSynced: 0,
+        errors: [],
+        timestamp: new Date().toISOString()
+      };
+    }
+
     this.syncInProgress = true;
     this.notifyStatusChange('syncing');
 
-    const result: SyncResult = {
-      success: true,
-      itemsSynced: 0,
-      errors: [],
-      timestamp: new Date().toISOString()
-    };
+    const errors: string[] = [];
+    let itemsSynced = 0;
 
     try {
-      // Get pending changes from localStorage
-      const pendingChanges = this.getPendingChangesFromStorage();
+      const { getPendingSyncItems, markItemSynced, markEntitySynced } = await import('@/lib/db/sqlite');
+      const { executeQuery } = await import('@/lib/db/sqlite');
       
-      for (const change of pendingChanges) {
-        try {
-          const response = await fetch(change.endpoint, {
-            method: change.method,
-            headers: { 'Content-Type': 'application/json' },
-            body: change.body ? JSON.stringify(change.body) : undefined,
-          });
+      // Get user info from local storage
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        throw new Error('No user found');
+      }
+      const user = JSON.parse(userStr);
+      const userId = user.id;
 
-          if (response.ok) {
-            this.removePendingChange(change.id);
-            result.itemsSynced++;
+      // Get all pending sync items
+      const pendingItems = await getPendingSyncItems(userId);
+      
+      console.log(`Found ${pendingItems.length} items to sync`);
+
+      // Group by entity type
+      const itemsToSync = pendingItems.filter(item => item.entity_type === 'item');
+      const customersToSync = pendingItems.filter(item => item.entity_type === 'customer');
+      const transactionsToSync = pendingItems.filter(item => item.entity_type === 'transaction');
+
+      // Sync items
+      for (const syncItem of itemsToSync) {
+        try {
+          const items = await executeQuery(
+            'SELECT * FROM items WHERE id = ? AND user_id = ?',
+            [syncItem.entity_id, userId]
+          );
+          
+          if (items.length === 0) continue;
+          const item = items[0];
+
+          if (item.is_deleted) {
+            // Delete on server
+            await fetch(`/api/items/${item.id}`, { method: 'DELETE' });
           } else {
-            throw new Error(`Failed to sync: ${response.statusText}`);
+            // Upsert on server
+            const response = await fetch('/api/items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: item.id,
+                name: item.name,
+                buyPrice: item.buy_price,
+                sellPrice: item.sell_price,
+                quantity: item.quantity,
+                unit: item.unit,
+              }),
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              errors.push(`Item ${item.name}: ${error.error || 'Unknown error'}`);
+              continue;
+            }
           }
-        } catch (error: any) {
-          result.errors.push(error.message);
+
+          await markItemSynced(syncItem.id);
+          await markEntitySynced('item', item.id);
+          itemsSynced++;
+        } catch (err) {
+          errors.push(`Item sync error: ${err}`);
         }
       }
 
-      this.notifyStatusChange('synced');
-    } catch (error: any) {
-      result.success = false;
-      result.errors.push(error.message);
+      // Sync customers
+      for (const syncItem of customersToSync) {
+        try {
+          const customers = await executeQuery(
+            'SELECT * FROM customers WHERE id = ? AND user_id = ?',
+            [syncItem.entity_id, userId]
+          );
+          
+          if (customers.length === 0) continue;
+          const customer = customers[0];
+
+          if (customer.is_deleted) {
+            // Skip deleted customers for now (complex with transactions)
+            await markItemSynced(syncItem.id);
+            continue;
+          }
+
+          const response = await fetch('/api/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: customer.id,
+              name: customer.name,
+              phoneNumber: customer.phone_number,
+              outstandingBalance: customer.outstanding_balance,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            errors.push(`Customer ${customer.name}: ${error.error || 'Unknown error'}`);
+            continue;
+          }
+
+          await markItemSynced(syncItem.id);
+          await markEntitySynced('customer', customer.id);
+          itemsSynced++;
+        } catch (err) {
+          errors.push(`Customer sync error: ${err}`);
+        }
+      }
+
+      // Sync transactions
+      for (const syncItem of transactionsToSync) {
+        try {
+          const transactions = await executeQuery(
+            'SELECT * FROM transactions WHERE id = ? AND user_id = ?',
+            [syncItem.entity_id, userId]
+          );
+          
+          if (transactions.length === 0) continue;
+          const tx = transactions[0];
+
+          if (tx.is_deleted) {
+            // Skip deleted transactions for now
+            await markItemSynced(syncItem.id);
+            continue;
+          }
+
+          const response = await fetch('/api/transactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerId: tx.customer_id,
+              items: JSON.parse(tx.items_json || '[]'),
+              paymentReceived: tx.payment_received,
+              paymentMethod: tx.payment_method,
+              notes: tx.notes,
+              transactionDate: tx.transaction_date,
+              additionalCharges: JSON.parse(tx.additional_charges_json || '[]'),
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            errors.push(`Transaction: ${error.error || 'Unknown error'}`);
+            continue;
+          }
+
+          await markItemSynced(syncItem.id);
+          await markEntitySynced('transaction', tx.id);
+          itemsSynced++;
+        } catch (err) {
+          errors.push(`Transaction sync error: ${err}`);
+        }
+      }
+
+      this.notifyStatusChange(errors.length > 0 ? 'error' : 'synced');
+
+      return {
+        success: errors.length === 0,
+        itemsSynced,
+        errors,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Sync error:', error);
       this.notifyStatusChange('error');
+      
+      return {
+        success: false,
+        itemsSynced,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+        timestamp: new Date().toISOString()
+      };
     } finally {
       this.syncInProgress = false;
     }
-
-    return result;
   }
 
-  private getPendingChangesFromStorage(): any[] {
-    if (typeof window === 'undefined') return [];
-    const stored = localStorage.getItem('pendingChanges');
-    return stored ? JSON.parse(stored) : [];
+  enableAutoSync() {
+    this.autoSyncEnabled = true;
   }
 
-  private removePendingChange(id: string) {
-    if (typeof window === 'undefined') return;
-    const changes = this.getPendingChangesFromStorage();
-    const filtered = changes.filter((c: any) => c.id !== id);
-    localStorage.setItem('pendingChanges', JSON.stringify(filtered));
+  disableAutoSync() {
+    this.autoSyncEnabled = false;
   }
 
-  addPendingChange(endpoint: string, method: string, body?: any) {
-    if (typeof window === 'undefined') return;
-    const changes = this.getPendingChangesFromStorage();
-    changes.push({
-      id: Date.now().toString(),
-      endpoint,
-      method,
-      body,
-      timestamp: new Date().toISOString()
-    });
-    localStorage.setItem('pendingChanges', JSON.stringify(changes));
+  isSyncing(): boolean {
+    return this.syncInProgress;
   }
 
   // Manual sync trigger
@@ -137,8 +275,24 @@ class SyncService {
   }
 
   // Get pending changes count
-  getPendingChangesCount(): number {
-    return this.getPendingChangesFromStorage().length;
+  async getPendingChangesCount(): Promise<number> {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      if (platform !== 'android' && platform !== 'ios') {
+        return 0;
+      }
+
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return 0;
+      
+      const user = JSON.parse(userStr);
+      const { getPendingSyncItems } = await import('@/lib/db/sqlite');
+      const pending = await getPendingSyncItems(user.id);
+      return pending.length;
+    } catch {
+      return 0;
+    }
   }
 }
 

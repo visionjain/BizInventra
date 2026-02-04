@@ -26,15 +26,25 @@ export function OfflineIndicator() {
       setSyncStatus(status);
       if (status === 'synced') {
         setLastSyncTime(new Date().toLocaleTimeString());
-        setPendingChanges(0);
+        updatePendingCount();
       }
     });
+
+    // Update pending count periodically
+    updatePendingCount();
+    const interval = setInterval(updatePendingCount, 5000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
     };
   }, []);
+
+  const updatePendingCount = async () => {
+    const count = await syncService.getPendingChangesCount();
+    setPendingChanges(count);
+  };
 
   const handleManualSync = async () => {
     setSyncing(true);
@@ -42,10 +52,13 @@ export function OfflineIndicator() {
       const result = await syncService.manualSync();
       if (result.success) {
         setLastSyncTime(new Date().toLocaleTimeString());
-        setPendingChanges(0);
+        await updatePendingCount();
+      } else if (result.errors.length > 0) {
+        alert(`Sync completed with errors:\n${result.errors.join('\n')}`);
       }
     } catch (error) {
       console.error('Manual sync failed:', error);
+      alert('Manual sync failed. Please try again.');
     } finally {
       setSyncing(false);
     }

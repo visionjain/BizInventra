@@ -41,7 +41,10 @@ export async function GET(request: NextRequest) {
       topItems,
       weeklyReturns,
       monthlyReturns,
-      yearlyReturns
+      yearlyReturns,
+      weeklyCharges,
+      monthlyCharges,
+      yearlyCharges
     ] = await Promise.all([
       // Weekly transactions stats
       db.collection('transactions').aggregate([
@@ -53,17 +56,30 @@ export async function GET(request: NextRequest) {
           }
         },
         {
+          $addFields: {
+            itemsOnlyTotal: {
+              $cond: {
+                if: { $and: [
+                  { $isArray: '$items' },
+                  { $gt: [{ $size: '$items' }, 0] }
+                ]},
+                then: {
+                  $reduce: {
+                    input: '$items',
+                    initialValue: 0,
+                    in: { $add: ['$$value', { $multiply: ['$$this.quantity', '$$this.pricePerUnit'] }] }
+                  }
+                },
+                else: { $subtract: ['$totalAmount', { $ifNull: ['$totalAdditionalCharges', 0] }] }
+              }
+            }
+          }
+        },
+        {
           $group: {
             _id: null,
-            totalSales: { $sum: '$totalAmount' },
-            totalProfit: { 
-              $sum: { 
-                $multiply: [
-                  { $divide: ['$paymentReceived', { $ifNull: ['$totalAmount', 1] }] },
-                  '$totalProfit'
-                ]
-              }
-            },
+            totalSales: { $sum: '$itemsOnlyTotal' },
+            totalProfit: { $sum: '$totalProfit' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -90,17 +106,30 @@ export async function GET(request: NextRequest) {
           }
         },
         {
+          $addFields: {
+            itemsOnlyTotal: {
+              $cond: {
+                if: { $and: [
+                  { $isArray: '$items' },
+                  { $gt: [{ $size: '$items' }, 0] }
+                ]},
+                then: {
+                  $reduce: {
+                    input: '$items',
+                    initialValue: 0,
+                    in: { $add: ['$$value', { $multiply: ['$$this.quantity', '$$this.pricePerUnit'] }] }
+                  }
+                },
+                else: { $subtract: ['$totalAmount', { $ifNull: ['$totalAdditionalCharges', 0] }] }
+              }
+            }
+          }
+        },
+        {
           $group: {
             _id: null,
-            totalSales: { $sum: '$totalAmount' },
-            totalProfit: { 
-              $sum: { 
-                $multiply: [
-                  { $divide: ['$paymentReceived', { $ifNull: ['$totalAmount', 1] }] },
-                  '$totalProfit'
-                ]
-              }
-            },
+            totalSales: { $sum: '$itemsOnlyTotal' },
+            totalProfit: { $sum: '$totalProfit' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -127,17 +156,30 @@ export async function GET(request: NextRequest) {
           }
         },
         {
+          $addFields: {
+            itemsOnlyTotal: {
+              $cond: {
+                if: { $and: [
+                  { $isArray: '$items' },
+                  { $gt: [{ $size: '$items' }, 0] }
+                ]},
+                then: {
+                  $reduce: {
+                    input: '$items',
+                    initialValue: 0,
+                    in: { $add: ['$$value', { $multiply: ['$$this.quantity', '$$this.pricePerUnit'] }] }
+                  }
+                },
+                else: { $subtract: ['$totalAmount', { $ifNull: ['$totalAdditionalCharges', 0] }] }
+              }
+            }
+          }
+        },
+        {
           $group: {
             _id: null,
-            totalSales: { $sum: '$totalAmount' },
-            totalProfit: { 
-              $sum: { 
-                $multiply: [
-                  { $divide: ['$paymentReceived', { $ifNull: ['$totalAmount', 1] }] },
-                  '$totalProfit'
-                ]
-              }
-            },
+            totalSales: { $sum: '$itemsOnlyTotal' },
+            totalProfit: { $sum: '$totalProfit' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -300,6 +342,57 @@ export async function GET(request: NextRequest) {
             totalProfitLost: { $sum: '$totalProfitLost' }
           }
         }
+      ]).toArray(),
+
+      // Weekly additional charges
+      db.collection('transactions').aggregate([
+        {
+          $match: {
+            userId: decoded.userId,
+            isDeleted: { $ne: true },
+            transactionDate: { $gte: weekStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalCharges: { $sum: { $ifNull: ['$totalAdditionalCharges', 0] } }
+          }
+        }
+      ]).toArray(),
+
+      // Monthly additional charges
+      db.collection('transactions').aggregate([
+        {
+          $match: {
+            userId: decoded.userId,
+            isDeleted: { $ne: true },
+            transactionDate: { $gte: monthStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalCharges: { $sum: { $ifNull: ['$totalAdditionalCharges', 0] } }
+          }
+        }
+      ]).toArray(),
+
+      // Yearly additional charges
+      db.collection('transactions').aggregate([
+        {
+          $match: {
+            userId: decoded.userId,
+            isDeleted: { $ne: true },
+            transactionDate: { $gte: yearStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalCharges: { $sum: { $ifNull: ['$totalAdditionalCharges', 0] } }
+          }
+        }
       ]).toArray()
     ]);
 
@@ -312,27 +405,39 @@ export async function GET(request: NextRequest) {
     const wReturns = weeklyReturns[0] || { totalReturnValue: 0, totalProfitLost: 0 };
     const mReturns = monthlyReturns[0] || { totalReturnValue: 0, totalProfitLost: 0 };
     const yReturns = yearlyReturns[0] || { totalReturnValue: 0, totalProfitLost: 0 };
+    const wCharges = weeklyCharges[0] || { totalCharges: 0 };
+    const mCharges = monthlyCharges[0] || { totalCharges: 0 };
+    const yCharges = yearlyCharges[0] || { totalCharges: 0 };
 
     return NextResponse.json({
       success: true,
       stats: {
         weekly: {
-          sales: weekly.totalSales - wReturns.totalReturnValue,
-          profit: weekly.totalProfit - wReturns.totalProfitLost,
+          sales: weekly.totalSales,
+          profit: weekly.totalProfit,
           transactions: weekly.count,
-          itemsSold: weekly.totalItems
+          itemsSold: weekly.totalItems,
+          additionalCharges: wCharges.totalCharges,
+          returns: wReturns.totalReturnValue,
+          returnsProfit: wReturns.totalProfitLost
         },
         monthly: {
-          sales: monthly.totalSales - mReturns.totalReturnValue,
-          profit: monthly.totalProfit - mReturns.totalProfitLost,
+          sales: monthly.totalSales,
+          profit: monthly.totalProfit,
           transactions: monthly.count,
-          itemsSold: monthly.totalItems
+          itemsSold: monthly.totalItems,
+          additionalCharges: mCharges.totalCharges,
+          returns: mReturns.totalReturnValue,
+          returnsProfit: mReturns.totalProfitLost
         },
         yearly: {
-          sales: yearly.totalSales - yReturns.totalReturnValue,
-          profit: yearly.totalProfit - yReturns.totalProfitLost,
+          sales: yearly.totalSales,
+          profit: yearly.totalProfit,
           transactions: yearly.count,
-          itemsSold: yearly.totalItems
+          itemsSold: yearly.totalItems,
+          additionalCharges: yCharges.totalCharges,
+          returns: yReturns.totalReturnValue,
+          returnsProfit: yReturns.totalProfitLost
         },
         inventory: {
           totalItems: inventory.totalItems,

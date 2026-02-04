@@ -57,20 +57,40 @@ export async function GET(request: NextRequest) {
     const statsAggregation = await db.collection('transactions').aggregate([
       { $match: filter },
       {
-        $group: {
-          _id: null,
-          totalAmountWithCharges: { $sum: '$totalAmount' },
-          totalReceived: { $sum: '$paymentReceived' },
-          totalOutstanding: { $sum: '$balanceAmount' },
-          totalAdditionalCharges: { $sum: '$totalAdditionalCharges' },
-          totalProfit: { $sum: '$totalProfit' },
-          totalCount: { $sum: 1 }
+        $addFields: {
+          // Handle inconsistent data: some transactions have totalAmount including charges, others don't
+          // If totalAdditionalCharges exists and is greater than 0, check if it's already included
+          // Safe approach: use the items array to calculate items total
+          itemsOnlyTotal: {
+            $cond: {
+              if: { $and: [
+                { $isArray: '$items' },
+                { $gt: [{ $size: '$items' }, 0] }
+              ]},
+              then: {
+                $reduce: {
+                  input: '$items',
+                  initialValue: 0,
+                  in: { $add: ['$$value', { $multiply: ['$$this.quantity', '$$this.pricePerUnit'] }] }
+                }
+              },
+              else: {
+                // Fallback: subtract charges from totalAmount (assuming it includes charges)
+                $subtract: ['$totalAmount', { $ifNull: ['$totalAdditionalCharges', 0] }]
+              }
+            }
+          }
         }
       },
       {
-        $addFields: {
-          // Total Sales (items only) = totalAmount - additionalCharges
-          totalSales: { $subtract: ['$totalAmountWithCharges', '$totalAdditionalCharges'] }
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$itemsOnlyTotal' },
+          totalReceived: { $sum: '$paymentReceived' },
+          totalOutstanding: { $sum: '$balanceAmount' },
+          totalAdditionalCharges: { $sum: { $ifNull: ['$totalAdditionalCharges', 0] } },
+          totalProfit: { $sum: '$totalProfit' },
+          totalCount: { $sum: 1 }
         }
       }
     ]).toArray();
