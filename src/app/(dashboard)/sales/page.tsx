@@ -442,7 +442,7 @@ export default function SalesPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(204px + env(safe-area-inset-top))' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8" style={{ paddingTop: 'calc(204px + env(safe-area-inset-top))' }}>
         {isLoading ? (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
