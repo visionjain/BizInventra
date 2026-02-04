@@ -5,6 +5,13 @@
   --foreground: #171717;
 }
 
+/* Black background for status bar area on Android */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    background: linear-gradient(to bottom, #000000 0, #000000 env(safe-area-inset-top), #ffffff env(safe-area-inset-top));
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

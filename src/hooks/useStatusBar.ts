@@ -7,25 +7,25 @@ export function useStatusBar() {
     if (Capacitor.getPlatform() === 'android') {
       const setStatusBar = async () => {
         try {
-          // Set background color to black first
+          // Set background color to black
           await StatusBar.setBackgroundColor({ color: '#000000' });
           
-          // Set style to Dark (light/white content on dark background)
+          // Set style to Dark (light/white icons on dark background)
           await StatusBar.setStyle({ style: Style.Dark });
-          
-          // Ensure it's not overlaying
-          await StatusBar.setOverlaysWebView({ overlay: false });
           
           // Show the status bar
           await StatusBar.show();
           
-          console.log('Status bar set to black with white icons');
+          console.log('Status bar configured: black bg, white icons');
         } catch (error) {
-          console.error('Error setting status bar:', error);
+          console.error('StatusBar error:', error);
         }
       };
       
+      // Set immediately and also after a slight delay to override any other settings
       setStatusBar();
+      setTimeout(setStatusBar, 100);
+      setTimeout(setStatusBar, 500);
     }
   }, []);
 }
