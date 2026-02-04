@@ -101,6 +101,7 @@ class SyncService {
       const itemsToSync = pendingItems.filter(item => item.entity_type === 'item');
       const customersToSync = pendingItems.filter(item => item.entity_type === 'customer');
       const transactionsToSync = pendingItems.filter(item => item.entity_type === 'transaction');
+      const returnsToSync = pendingItems.filter(item => item.entity_type === 'return');
 
       // Sync items
       for (const syncItem of itemsToSync) {
@@ -230,6 +231,49 @@ class SyncService {
           itemsSynced++;
         } catch (err) {
           errors.push(`Transaction sync error: ${err}`);
+        }
+      }
+
+      // Sync returns
+      for (const syncItem of returnsToSync) {
+        try {
+          const returns = await executeQuery(
+            'SELECT * FROM return_transactions WHERE id = ? AND user_id = ?',
+            [syncItem.entity_id, userId]
+          );
+          
+          if (returns.length === 0) continue;
+          const returnTx = returns[0];
+
+          if (returnTx.is_deleted) {
+            await markItemSynced(syncItem.id);
+            continue;
+          }
+
+          const response = await fetch('/api/returns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transactionId: returnTx.transaction_id,
+              customerId: returnTx.customer_id,
+              customerName: returnTx.customer_name,
+              items: JSON.parse(returnTx.items_json || '[]'),
+              totalReturnValue: returnTx.total_return_value,
+              totalProfitLost: returnTx.total_profit_lost,
+              returnReason: returnTx.return_reason,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            errors.push(`Return: ${error.error || 'Unknown error'}`);
+            continue;
+          }
+
+          await markItemSynced(syncItem.id);
+          itemsSynced++;
+        } catch (err) {
+          errors.push(`Return sync error: ${err}`);
         }
       }
 

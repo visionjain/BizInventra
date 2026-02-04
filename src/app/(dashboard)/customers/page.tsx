@@ -124,7 +124,13 @@ export default function CustomersPage() {
         if (isNative) {
           const { updateCustomerOffline } = await import('@/lib/db/sqlite');
           await updateCustomerOffline(user!.id, customerId, formData);
-          updateCustomer(editingCustomer.id, { ...editingCustomer, ...formData });
+          const updatedCustomer = { 
+            ...editingCustomer, 
+            ...formData,
+            updatedAt: new Date(),
+            lastModifiedAt: new Date()
+          };
+          updateCustomer(editingCustomer.id, updatedCustomer);
           setShowForm(false);
           setEditingCustomer(null);
           alert('Customer updated offline. Will sync when online.');
@@ -152,7 +158,16 @@ export default function CustomersPage() {
         if (isNative) {
           const { saveCustomerOffline } = await import('@/lib/db/sqlite');
           const customerId = await saveCustomerOffline(user!.id, formData);
-          const newCustomer = { ...formData, id: customerId, _id: customerId };
+          const newCustomer = { 
+            ...formData, 
+            id: customerId, 
+            _id: customerId,
+            userId: user!.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isDeleted: false,
+            lastModifiedAt: new Date()
+          };
           addCustomer(newCustomer);
           setShowForm(false);
           alert('Customer added offline. Will sync when online.');

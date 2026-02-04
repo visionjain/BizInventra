@@ -176,7 +176,16 @@ export default function ItemsPage() {
         if (isNative) {
           const { saveItemOffline } = await import('@/lib/db/sqlite');
           const itemId = await saveItemOffline(user!.id, formData);
-          const newItem = { ...formData, id: itemId, _id: itemId };
+          const newItem = { 
+            ...formData, 
+            id: itemId, 
+            _id: itemId,
+            userId: user!.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            isDeleted: false,
+            lastModifiedAt: new Date()
+          };
           addItem(newItem);
           setShowForm(false);
           await loadItems();

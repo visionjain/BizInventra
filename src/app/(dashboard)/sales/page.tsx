@@ -164,7 +164,7 @@ export default function SalesPage() {
       const isOffline = !navigator.onLine;
       const isEditing = !!editingTransaction;
 
-      // Try online save
+      // Try online save first
       if (!isOffline) {
         const url = isEditing 
           ? `/api/transactions/${editingTransaction._id || editingTransaction.id}`
@@ -193,26 +193,40 @@ export default function SalesPage() {
           setEditingTransaction(null);
           // Reload to get updated balances and stock
           loadData();
+          // Auto-sync after successful online save
+          const { syncService } = await import('@/lib/syncService');
+          await syncService.syncAll();
           return;
         }
       }
 
-      // Fallback to offline save (native only, only for new transactions)
-      if (isNative && !isEditing) {
-        const { saveTransactionOffline } = await import('@/lib/db/sqlite');
-        const transactionId = await saveTransactionOffline(user!.id, formData);
-        const newTransaction = { ...formData, id: transactionId, _id: transactionId };
-        addTransaction(newTransaction);
-        setShowForm(false);
-        // Reload to get updated local data
-        loadData();
-        alert('Sale saved offline. Will sync when online.');
-      } else if (isOffline) {
+      // Fallback to offline save (native only)
+      if (isNative) {
         if (isEditing) {
-          alert('Cannot edit transactions offline. Please connect to internet.');
+          const { updateTransactionOffline } = await import('@/lib/db/sqlite');
+          await updateTransactionOffline(user!.id, editingTransaction.id || editingTransaction._id, formData);
+          // Update local state
+          setTransactions(transactions.map((t: any) => 
+            (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
+              ? { ...formData, id: editingTransaction.id || editingTransaction._id }
+              : t
+          ));
+          setShowForm(false);
+          setEditingTransaction(null);
+          loadData();
+          alert('Transaction updated offline. Will sync when online.');
         } else {
-          alert('Cannot save transaction offline on web. Please check your connection.');
+          const { saveTransactionOffline } = await import('@/lib/db/sqlite');
+          const transactionId = await saveTransactionOffline(user!.id, formData);
+          const newTransaction = { ...formData, id: transactionId, _id: transactionId };
+          addTransaction(newTransaction);
+          setShowForm(false);
+          // Reload to get updated local data
+          loadData();
+          alert('Sale saved offline. Will sync when online.');
         }
+      } else if (isOffline) {
+        alert('Cannot save transaction offline on web. Please check your connection.');
       }
     } catch (error) {
       console.error('Failed to save transaction:', error);
@@ -249,23 +263,43 @@ export default function SalesPage() {
   const handleReturnSubmit = async (returnData: any) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/returns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(returnData),
-      });
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      const isOffline = !navigator.onLine;
 
-      if (response.ok) {
-        alert('Return processed successfully!');
+      // Try online save first
+      if (!isOffline) {
+        const response = await fetch('/api/returns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(returnData),
+        });
+
+        if (response.ok) {
+          setShowReturnForm(false);
+          setReturningTransaction(null);
+          loadData();
+          // Auto-sync after successful online save
+          const { syncService } = await import('@/lib/syncService');
+          await syncService.syncAll();
+          return;
+        }
+      }
+
+      // Fallback to offline save (native only)
+      if (isNative) {
+        const { saveReturnOffline } = await import('@/lib/db/sqlite');
+        await saveReturnOffline(user!.id, returnData);
         setShowReturnForm(false);
         setReturningTransaction(null);
-        await loadData();
-      } else {
-        const error = await response.json();
-        alert(`Failed to process return: ${error.error || 'Unknown error'}`);
+        loadData();
+        alert('Return saved offline. Will sync when online.');
+      } else if (isOffline) {
+        alert('Cannot save return offline on web. Please check your connection.');
       }
     } catch (error) {
-      console.error('Return submission error:', error);
+      console.error('Failed to process return:', error);
       alert('Failed to process return');
     } finally {
       setIsSubmitting(false);

@@ -96,17 +96,18 @@ export function OfflineIndicator() {
           <span className="text-sm font-medium">{getStatusText()}</span>
         </div>
         
-        {lastSyncTime && isOnline && (
+        {lastSyncTime && isOnline && pendingChanges === 0 && (
           <span className="text-xs opacity-75">
             {lastSyncTime}
           </span>
         )}
 
-        {isOnline && !syncing && (
+        {(pendingChanges > 0 || !isOnline) && !syncing && (
           <button
             onClick={handleManualSync}
             className="p-1 hover:bg-white/50 rounded transition-colors"
             title="Sync now"
+            disabled={!isOnline}
           >
             <RefreshCw className="w-4 h-4" />
           </button>

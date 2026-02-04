@@ -126,6 +126,26 @@ export async function initDatabase() {
         FOREIGN KEY (item_id) REFERENCES items(id)
       );
 
+      CREATE TABLE IF NOT EXISTS return_transactions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        transaction_id TEXT NOT NULL,
+        customer_id TEXT,
+        customer_name TEXT,
+        transaction_date TEXT NOT NULL,
+        total_return_value REAL NOT NULL,
+        total_profit_lost REAL NOT NULL,
+        return_reason TEXT,
+        items_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        last_modified_at TEXT NOT NULL,
+        synced INTEGER DEFAULT 1,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+      );
+
       CREATE TABLE IF NOT EXISTS sync_log (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -466,4 +486,132 @@ export async function markEntitySynced(entityType: string, entityId: string): Pr
     `UPDATE ${table} SET synced = 1 WHERE id = ?`,
     [entityId]
   );
+}
+
+// UPDATE TRANSACTION OFFLINE
+export async function updateTransactionOffline(userId: string, transactionId: string, updates: any): Promise<void> {
+  const now = new Date().toISOString();
+  
+  await executeUpdate(
+    `UPDATE transactions SET 
+      customer_id = ?,
+      customer_name = ?,
+      total_amount = ?,
+      payment_received = ?,
+      balance_amount = ?,
+      payment_method = ?,
+      notes = ?,
+      total_profit = ?,
+      total_additional_charges = ?,
+      items_json = ?,
+      additional_charges_json = ?,
+      updated_at = ?,
+      last_modified_at = ?,
+      synced = 0
+    WHERE id = ? AND user_id = ?`,
+    [
+      updates.customerId || null,
+      updates.customerName,
+      updates.totalAmount,
+      updates.paymentReceived,
+      updates.balanceAmount,
+      updates.paymentMethod,
+      updates.notes || '',
+      updates.totalProfit,
+      updates.totalAdditionalCharges || 0,
+      JSON.stringify(updates.items || []),
+      JSON.stringify(updates.additionalCharges || []),
+      now,
+      now,
+      transactionId,
+      userId
+    ]
+  );
+  
+  // Add to sync queue
+  await executeUpdate(
+    `INSERT INTO sync_log (id, user_id, entity_type, entity_id, operation, synced, created_at)
+     VALUES (?, ?, 'transaction', ?, 'update', 0, ?)`,
+    [generateId(), userId, transactionId, now]
+  );
+}
+
+// SAVE RETURN OFFLINE
+export async function saveReturnOffline(userId: string, returnData: any): Promise<string> {
+  const id = generateId();
+  const now = new Date().toISOString();
+  
+  await executeUpdate(
+    `INSERT INTO return_transactions (
+      id, user_id, transaction_id, customer_id, customer_name,
+      transaction_date, total_return_value, total_profit_lost,
+      return_reason, items_json, created_at, updated_at,
+      last_modified_at, is_deleted, synced
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+    [
+      id,
+      userId,
+      returnData.transactionId,
+      returnData.customerId || null,
+      returnData.customerName,
+      now,
+      returnData.totalReturnValue,
+      returnData.totalProfitLost,
+      returnData.returnReason || '',
+      JSON.stringify(returnData.items || []),
+      now,
+      now,
+      now
+    ]
+  );
+  
+  // Update stock for returned items
+  for (const item of returnData.items || []) {
+    await executeUpdate(
+      `UPDATE items SET quantity = quantity + ?, updated_at = ?, last_modified_at = ?
+       WHERE id = ? AND user_id = ?`,
+      [item.quantity, now, now, item.itemId, userId]
+    );
+  }
+  
+  // Update customer balance if applicable
+  if (returnData.customerId) {
+    await executeUpdate(
+      `UPDATE customers SET outstanding_balance = outstanding_balance - ?,
+       updated_at = ?, last_modified_at = ?
+       WHERE id = ? AND user_id = ?`,
+      [returnData.totalReturnValue, now, now, returnData.customerId, userId]
+    );
+  }
+  
+  // Add to sync queue
+  await executeUpdate(
+    `INSERT INTO sync_log (id, user_id, entity_type, entity_id, operation, synced, created_at)
+     VALUES (?, ?, 'return', ?, 'insert', 0, ?)`,
+    [generateId(), userId, id, now]
+  );
+  
+  return id;
+}
+
+// GET RETURNS OFFLINE
+export async function getReturnsOffline(userId: string): Promise<any[]> {
+  const returns = await executeQuery(
+    'SELECT * FROM return_transactions WHERE user_id = ? AND is_deleted = 0 ORDER BY transaction_date DESC',
+    [userId]
+  );
+  
+  return returns.map((r: any) => ({
+    id: r.id,
+    _id: r.id,
+    transactionId: r.transaction_id,
+    customerId: r.customer_id,
+    customerName: r.customer_name,
+    transactionDate: new Date(r.transaction_date),
+    totalReturnValue: r.total_return_value,
+    totalProfitLost: r.total_profit_lost,
+    returnReason: r.return_reason,
+    items: JSON.parse(r.items_json || '[]'),
+    createdAt: new Date(r.created_at),
+  }));
 }
