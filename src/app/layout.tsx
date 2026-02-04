@@ -46,7 +46,7 @@ export default function RootLayout({
         <div 
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 pointer-events-none md:hidden"
           style={{ 
-            height: 'max(16px, env(safe-area-inset-bottom))',
+            height: 'max(48px, env(safe-area-inset-bottom))',
             paddingBottom: 'env(safe-area-inset-bottom)'
           }}
         />

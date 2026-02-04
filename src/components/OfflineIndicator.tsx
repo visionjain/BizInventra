@@ -94,7 +94,7 @@ export function OfflineIndicator() {
   };
 
   return (
-    <div className="fixed right-4 z-50" style={{ bottom: 'max(1.5rem, calc(16px + env(safe-area-inset-bottom)))' }}>
+    <div className="fixed right-4 z-50" style={{ bottom: 'max(3rem, calc(48px + env(safe-area-inset-bottom)))' }}>
       <button
         onClick={handleManualSync}
         disabled={!isOnline || syncing}
