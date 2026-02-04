@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
-import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3, PieChart } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
 interface DashboardStats {
   weekly: {
@@ -48,8 +48,7 @@ interface DashboardStats {
 
 interface ChartData {
   salesTrend: Array<{ date: string; sales: number; profit: number; }>;
-  topItems: Array<{ name: string; quantity: number; revenue: number; }>;
-  paymentMethods: Array<{ name: string; value: number; }>;
+  profitableProducts: Array<{ name: string; quantity: number; revenue: number; profit: number; }>;
 }
 
 export default function DashboardPage() {
@@ -78,10 +77,10 @@ export default function DashboardPage() {
     customers: { total: 0, outstanding: 0 },
   });
   const [customStats, setCustomStats] = useState({ sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 });
+  const [profitPeriod, setProfitPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [chartData, setChartData] = useState<ChartData>({
     salesTrend: [],
-    topItems: [],
-    paymentMethods: [],
+    profitableProducts: [],
   });
 
   useEffect(() => {
@@ -111,7 +110,7 @@ export default function DashboardPage() {
       console.log('Dashboard: Loading dashboard data...');
       loadDashboardData();
     }
-  }, [user, isInitialized, startDate, endDate, timePeriod]);
+  }, [user, isInitialized, startDate, endDate, timePeriod, profitPeriod]);
 
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
@@ -172,11 +171,14 @@ export default function DashboardPage() {
         customers: data.stats.customers
       });
 
+      // Fetch profitable products based on profitPeriod
+      const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
+      const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
+
       // Set chart data
       setChartData({
         salesTrend: data.chartData.salesTrend,
-        topItems: data.chartData.topItems,
-        paymentMethods: [] // Payment methods aggregation can be added if needed
+        profitableProducts: profitData.products || [],
       });
 
       console.log('Dashboard: Stats loaded successfully');
@@ -718,16 +720,41 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Top Items Chart */}
+                {/* Most Profitable Products Chart */}
                 <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-md font-semibold text-gray-700 mb-4">
-                    Top Selling Items
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-md font-semibold text-gray-700">
+                      Most Profitable Products
+                    </h3>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={profitPeriod === 'weekly' ? 'primary' : 'outline'}
+                        onClick={() => setProfitPeriod('weekly')}
+                        className="text-xs px-3 py-1"
+                      >
+                        Weekly
+                      </Button>
+                      <Button
+                        variant={profitPeriod === 'monthly' ? 'primary' : 'outline'}
+                        onClick={() => setProfitPeriod('monthly')}
+                        className="text-xs px-3 py-1"
+                      >
+                        Monthly
+                      </Button>
+                      <Button
+                        variant={profitPeriod === 'yearly' ? 'primary' : 'outline'}
+                        onClick={() => setProfitPeriod('yearly')}
+                        className="text-xs px-3 py-1"
+                      >
+                        Yearly
+                      </Button>
+                    </div>
+                  </div>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData.topItems} layout="vertical">
+                    <BarChart data={chartData.profitableProducts} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis type="number" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                      <YAxis dataKey="name" type="category" stroke="#6b7280" style={{ fontSize: '11px' }} width={100} />
+                      <YAxis dataKey="name" type="category" stroke="#6b7280" style={{ fontSize: '11px' }} width={120} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'white', 
@@ -737,55 +764,23 @@ export default function DashboardPage() {
                         }}
                         formatter={(value: number | undefined, name: string | undefined) => {
                           if (!value) return ['0', name || ''];
-                          if (name === 'revenue') return [`₹${value.toLocaleString('en-IN')}`, 'Revenue'];
-                          return [value, 'Quantity'];
+                          if (name === 'Profit (₹)') return [`₹${value.toLocaleString('en-IN')}`, 'Profit'];
+                          if (name === 'Revenue (₹)') return [`₹${value.toLocaleString('en-IN')}`, 'Revenue'];
+                          if (name === 'Quantity Sold') return [value.toString(), 'Quantity Sold'];
+                          return [value, name || ''];
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="quantity" fill="#8b5cf6" name="Quantity" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="quantity" fill="#8b5cf6" name="Quantity Sold" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="profit" fill="#10b981" name="Profit (₹)" radius={[0, 4, 4, 0]} />
                       <Bar dataKey="revenue" fill="#3b82f6" name="Revenue (₹)" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Payment Methods & Additional Stats */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Payment Methods Pie Chart */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="text-md font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                    <PieChart className="w-5 h-5 text-blue-600" />
-                    Payment Methods Distribution
-                  </h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RePieChart>
-                      <Pie
-                        data={chartData.paymentMethods}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={(entry) => `${entry.name}: ₹${entry.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {chartData.paymentMethods.map((entry, index) => {
-                          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                        })}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value: number | undefined) => value ? `₹${value.toLocaleString('en-IN')}` : '₹0'}
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px'
-                        }}
-                      />
-                    </RePieChart>
-                  </ResponsiveContainer>
-                </div>
-
+              {/* Key Performance Indicators - Full Width */}
+              <div className="grid grid-cols-1 gap-6">
                 {/* Key Metrics */}
                 <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-lg shadow p-6 text-white">
                   <h3 className="text-md font-semibold mb-4">Key Performance Indicators</h3>
