@@ -180,7 +180,7 @@ export default function DashboardPage() {
       {/* Navigation */}
       <div className="bg-white shadow-sm border-b fixed left-0 right-0 z-30" style={{ top: 'calc(68px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 overflow-x-auto">
+          <div className="flex space-x-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
               className="px-4 py-3 text-blue-600 border-b-2 border-blue-600 font-medium"
             >

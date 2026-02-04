@@ -94,36 +94,17 @@ export function OfflineIndicator() {
   };
 
   return (
-    <div className="fixed right-4 z-50" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-      <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border shadow-lg ${getStatusColor()}`}>
-        <div className="flex items-center gap-2">
-          {getStatusIcon()}
-          <span className="text-sm font-medium">{getStatusText()}</span>
-        </div>
-        
-        {lastSyncTime && isOnline && pendingChanges === 0 && (
-          <span className="text-xs opacity-75">
-            {lastSyncTime}
-          </span>
-        )}
-
-        {(pendingChanges > 0 || !isOnline) && !syncing && (
-          <button
-            onClick={handleManualSync}
-            className="p-1 hover:bg-white/50 rounded transition-colors"
-            title="Sync now"
-            disabled={!isOnline}
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      {!isOnline && (
-        <div className="mt-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-          Working offline. Changes will sync when online.
-        </div>
-      )}
+    <div className="fixed right-4 z-50" style={{ bottom: 'max(1.5rem, calc(16px + env(safe-area-inset-bottom)))' }}>
+      <button
+        onClick={handleManualSync}
+        disabled={!isOnline || syncing}
+        className={`w-12 h-12 rounded-full border-2 shadow-lg flex items-center justify-center transition-all ${getStatusColor()} ${
+          !isOnline || syncing ? 'cursor-not-allowed opacity-70' : 'hover:scale-110'
+        }`}
+        title={getStatusText() + (pendingChanges > 0 ? ` (${pendingChanges})` : '')}
+      >
+        {getStatusIcon()}
+      </button>
     </div>
   );
 }

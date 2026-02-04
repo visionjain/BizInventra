@@ -492,7 +492,7 @@ export default function ItemsPage() {
       {/* Navigation */}
       <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(68px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-4">
+          <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
               onClick={() => router.push('/')}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
