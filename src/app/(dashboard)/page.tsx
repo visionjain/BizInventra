@@ -95,238 +95,37 @@ export default function DashboardPage() {
     console.log('Dashboard: loadDashboardData started');
     setLoading(true);
     try {
-      console.log('Dashboard: Fetching data from APIs...');
-      // Fetch all data in parallel
-      const [transactionsRes, itemsRes, customersRes, returnsRes] = await Promise.all([
-        fetch('/api/transactions'),
-        fetch('/api/items'),
-        fetch('/api/customers'),
-        fetch('/api/returns'),
-      ]);
+      console.log('Dashboard: Fetching optimized stats...');
+      // Use optimized server-side aggregation endpoint
+      const response = await fetch('/api/dashboard/stats');
 
-      console.log('Dashboard: API responses received', {
-        transactions: transactionsRes.ok,
-        items: itemsRes.ok,
-        customers: customersRes.ok,
-        returns: returnsRes.ok
-      });
-
-      const [transactionsData, itemsData, customersData, returnsData] = await Promise.all([
-        transactionsRes.json(),
-        itemsRes.json(),
-        customersRes.json(),
-        returnsRes.json(),
-      ]);
-
-      const transactions = transactionsData.transactions || [];
-      const items = itemsData.items || [];
-      const customers = customersData.customers || [];
-      const returns = returnsData.returns || [];
-
-      console.log('Dashboard: Data parsed', {
-        transactionsCount: transactions.length,
-        itemsCount: items.length,
-        customersCount: customers.length,
-        returnsCount: returns.length
-      });
-
-      // Calculate stats
-      const now = new Date();
-      const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const yearStart = new Date(now.getFullYear(), 0, 1);
-
-      // Weekly stats (last 7 days)
-      const weeklyTx = transactions.filter((tx: any) => 
-        new Date(tx.transactionDate) >= weekStart
-      );
-      const weeklyReturns = returns.filter((r: any) => 
-        new Date(r.transactionDate) >= weekStart
-      );
-      const weeklyReturnValue = weeklyReturns.reduce((sum: number, r: any) => sum + (r.totalReturnValue || 0), 0);
-      const weeklyReturnProfit = weeklyReturns.reduce((sum: number, r: any) => sum + (r.totalProfitLost || 0), 0);
-      
-      const weeklySales = weeklyTx.reduce((sum: number, tx: any) => sum + (tx.totalAmount || 0), 0) - weeklyReturnValue;
-      const weeklyProfit = weeklyTx.reduce((sum: number, tx: any) => {
-        const totalProfit = tx.totalProfit || 0;
-        const totalAmount = tx.totalAmount || 0;
-        const paymentReceived = tx.paymentReceived || 0;
-        if (totalAmount === 0) return sum;
-        return sum + ((paymentReceived / totalAmount) * totalProfit);
-      }, 0) - weeklyReturnProfit;
-      const weeklyItemsSold = weeklyTx.reduce((sum: number, tx: any) => 
-        sum + (tx.items?.reduce((s: number, item: any) => s + item.quantity, 0) || 0), 0
-      );
-
-      // Monthly stats
-      const monthlyTx = transactions.filter((tx: any) => 
-        new Date(tx.transactionDate) >= monthStart
-      );
-      const monthlyReturns = returns.filter((r: any) => 
-        new Date(r.transactionDate) >= monthStart
-      );
-      const monthlyReturnValue = monthlyReturns.reduce((sum: number, r: any) => sum + (r.totalReturnValue || 0), 0);
-      const monthlyReturnProfit = monthlyReturns.reduce((sum: number, r: any) => sum + (r.totalProfitLost || 0), 0);
-      
-      const monthlySales = monthlyTx.reduce((sum: number, tx: any) => sum + (tx.totalAmount || 0), 0) - monthlyReturnValue;
-      const monthlyProfit = monthlyTx.reduce((sum: number, tx: any) => {
-        const totalProfit = tx.totalProfit || 0;
-        const totalAmount = tx.totalAmount || 0;
-        const paymentReceived = tx.paymentReceived || 0;
-        if (totalAmount === 0) return sum;
-        return sum + ((paymentReceived / totalAmount) * totalProfit);
-      }, 0) - monthlyReturnProfit;
-      const monthlyItemsSold = monthlyTx.reduce((sum: number, tx: any) => 
-        sum + (tx.items?.reduce((s: number, item: any) => s + item.quantity, 0) || 0), 0
-      );
-
-      // Yearly stats
-      const yearlyTx = transactions.filter((tx: any) => 
-        new Date(tx.transactionDate) >= yearStart
-      );
-      const yearlyReturns = returns.filter((r: any) => 
-        new Date(r.transactionDate) >= yearStart
-      );
-      const yearlyReturnValue = yearlyReturns.reduce((sum: number, r: any) => sum + (r.totalReturnValue || 0), 0);
-      const yearlyReturnProfit = yearlyReturns.reduce((sum: number, r: any) => sum + (r.totalProfitLost || 0), 0);
-      
-      const yearlySales = yearlyTx.reduce((sum: number, tx: any) => sum + (tx.totalAmount || 0), 0) - yearlyReturnValue;
-      const yearlyProfit = yearlyTx.reduce((sum: number, tx: any) => {
-        const totalProfit = tx.totalProfit || 0;
-        const totalAmount = tx.totalAmount || 0;
-        const paymentReceived = tx.paymentReceived || 0;
-        if (totalAmount === 0) return sum;
-        return sum + ((paymentReceived / totalAmount) * totalProfit);
-      }, 0) - yearlyReturnProfit;
-      const yearlyItemsSold = yearlyTx.reduce((sum: number, tx: any) => 
-        sum + (tx.items?.reduce((s: number, item: any) => s + item.quantity, 0) || 0), 0
-      );
-
-      // Inventory stats
-      const totalValue = items.reduce((sum: number, item: any) => 
-        sum + (item.sellPrice * item.quantity), 0
-      );
-      const lowStockItems = items.filter((item: any) => item.quantity < 10).length;
-
-      // Customer stats
-      const totalOutstanding = customers.reduce((sum: number, c: any) => 
-        sum + (c.outstandingBalance || 0), 0
-      );
-
-      // Prepare chart data
-      // Last 7 days sales trend
-      const last7Days = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        const nextDate = new Date(date);
-        nextDate.setDate(nextDate.getDate() + 1);
-        
-        const dayTx = transactions.filter((tx: any) => {
-          const txDate = new Date(tx.transactionDate);
-          return txDate >= date && txDate < nextDate;
-        });
-        
-        const dayReturns = returns.filter((r: any) => {
-          const rDate = new Date(r.transactionDate);
-          return rDate >= date && rDate < nextDate;
-        });
-        
-        const dayReturnValue = dayReturns.reduce((sum: number, r: any) => sum + (r.totalReturnValue || 0), 0);
-        const dayReturnProfit = dayReturns.reduce((sum: number, r: any) => sum + (r.totalProfitLost || 0), 0);
-        
-        const daySales = dayTx.reduce((sum: number, tx: any) => sum + (tx.totalAmount || 0), 0) - dayReturnValue;
-        const dayProfit = dayTx.reduce((sum: number, tx: any) => {
-          const totalProfit = tx.totalProfit || 0;
-          const totalAmount = tx.totalAmount || 0;
-          const paymentReceived = tx.paymentReceived || 0;
-          if (totalAmount === 0) return sum;
-          return sum + ((paymentReceived / totalAmount) * totalProfit);
-        }, 0) - dayReturnProfit;
-        
-        last7Days.push({
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          sales: parseFloat(daySales.toFixed(2)),
-          profit: parseFloat(dayProfit.toFixed(2)),
-        });
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard stats');
       }
 
-      // Top 5 selling items
-      const itemSales: { [key: string]: { name: string; quantity: number; revenue: number } } = {};
-      transactions.forEach((tx: any) => {
-        tx.items?.forEach((item: any) => {
-          if (!itemSales[item.itemId]) {
-            // Try multiple name fields for backwards compatibility
-            const itemName = item.name || item.itemName || 'Unknown Item';
-            itemSales[item.itemId] = { name: itemName, quantity: 0, revenue: 0 };
-          }
-          itemSales[item.itemId].quantity += item.quantity;
-          // Use pricePerUnit if sellPrice is not available
-          const price = item.sellPrice || item.pricePerUnit || 0;
-          itemSales[item.itemId].revenue += (price * item.quantity);
-        });
-      });
+      const data = await response.json();
       
-      const topItems = Object.values(itemSales)
-        .filter(item => item.name) // Filter out items without names
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5)
-        .map(item => ({
-          name: (item.name && item.name.length > 15) ? item.name.substring(0, 15) + '...' : (item.name || 'Unknown'),
-          quantity: item.quantity,
-          revenue: parseFloat(item.revenue.toFixed(2)),
-        }));
+      console.log('Dashboard: Stats received', data);
 
-      // Payment methods distribution
-      const paymentMethodStats: { [key: string]: number } = {};
-      transactions.forEach((tx: any) => {
-        const method = tx.paymentMethod || 'Cash';
-        paymentMethodStats[method] = (paymentMethodStats[method] || 0) + (tx.paymentReceived || 0);
-      });
-      
-      const paymentMethods = Object.entries(paymentMethodStats).map(([name, value]) => ({
-        name,
-        value: parseFloat((value as number).toFixed(2)),
-      }));
-
+      // Set stats from server aggregation
       setStats({
-        weekly: {
-          sales: weeklySales,
-          profit: weeklyProfit,
-          transactions: weeklyTx.length,
-          itemsSold: weeklyItemsSold,
-        },
-        monthly: {
-          sales: monthlySales,
-          profit: monthlyProfit,
-          transactions: monthlyTx.length,
-          itemsSold: monthlyItemsSold,
-        },
-        yearly: {
-          sales: yearlySales,
-          profit: yearlyProfit,
-          transactions: yearlyTx.length,
-          itemsSold: yearlyItemsSold,
-        },
-        inventory: {
-          totalItems: items.length,
-          lowStock: lowStockItems,
-          totalValue: totalValue,
-        },
-        customers: {
-          total: customers.length,
-          outstanding: totalOutstanding,
-        },
+        weekly: data.stats.weekly,
+        monthly: data.stats.monthly,
+        yearly: data.stats.yearly,
+        inventory: data.stats.inventory,
+        customers: data.stats.customers
       });
 
+      // Set chart data
       setChartData({
-        salesTrend: last7Days,
-        topItems: topItems,
-        paymentMethods: paymentMethods,
+        salesTrend: data.chartData.salesTrend,
+        topItems: data.chartData.topItems,
+        paymentMethods: [] // Payment methods aggregation can be added if needed
       });
+
+      console.log('Dashboard: Stats loaded successfully');
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      console.error('Dashboard: Failed to load data', error);
     } finally {
       setLoading(false);
     }
