@@ -11,6 +11,9 @@ interface DashboardStats {
   weekly: {
     sales: number;
     profit: number;
+    realizedProfit: number;
+    unrealizedProfit: number;
+    outstanding: number;
     transactions: number;
     itemsSold: number;
     additionalCharges: number;
@@ -20,6 +23,9 @@ interface DashboardStats {
   monthly: {
     sales: number;
     profit: number;
+    realizedProfit: number;
+    unrealizedProfit: number;
+    outstanding: number;
     transactions: number;
     itemsSold: number;
     additionalCharges: number;
@@ -29,11 +35,17 @@ interface DashboardStats {
   yearly: {
     sales: number;
     profit: number;
+    realizedProfit: number;
+    unrealizedProfit: number;
+    outstanding: number;
     transactions: number;
     itemsSold: number;
     additionalCharges: number;
     returns: number;
     returnsProfit: number;
+  };
+  today: {
+    outstanding: number;
   };
   inventory: {
     totalItems: number;
@@ -70,13 +82,14 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
   const [stats, setStats] = useState<DashboardStats>({
-    weekly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
-    monthly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
-    yearly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    weekly: { sales: 0, profit: 0, realizedProfit: 0, unrealizedProfit: 0, outstanding: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    monthly: { sales: 0, profit: 0, realizedProfit: 0, unrealizedProfit: 0, outstanding: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    yearly: { sales: 0, profit: 0, realizedProfit: 0, unrealizedProfit: 0, outstanding: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
+    today: { outstanding: 0 },
     inventory: { totalItems: 0, lowStock: 0, totalValue: 0 },
     customers: { total: 0, outstanding: 0 },
   });
-  const [customStats, setCustomStats] = useState({ sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 });
+  const [customStats, setCustomStats] = useState({ sales: 0, profit: 0, realizedProfit: 0, unrealizedProfit: 0, outstanding: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 });
   const [profitPeriod, setProfitPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
   const [chartData, setChartData] = useState<ChartData>({
     salesTrend: [],
@@ -128,6 +141,9 @@ export default function DashboardPage() {
           // Calculate custom stats
           let totalSales = 0;
           let totalProfit = 0;
+          let totalRealizedProfit = 0;
+          let totalUnrealizedProfit = 0;
+          let totalOutstanding = 0;
           let totalCharges = 0;
           let totalReturns = 0;
           let totalReturnsProfit = 0;
@@ -137,11 +153,22 @@ export default function DashboardPage() {
             totalSales += itemsTotal;
             totalProfit += tx.totalProfit || 0;
             totalCharges += tx.totalAdditionalCharges || 0;
+            totalOutstanding += tx.balanceAmount || 0;
+            
+            // Calculate realized vs unrealized profit
+            if (tx.balanceAmount === 0) {
+              totalRealizedProfit += tx.totalProfit || 0;
+            } else if (tx.balanceAmount > 0) {
+              totalUnrealizedProfit += tx.totalProfit || 0;
+            }
           });
           
           setCustomStats({
             sales: totalSales,
             profit: totalProfit,
+            realizedProfit: totalRealizedProfit,
+            unrealizedProfit: totalUnrealizedProfit,
+            outstanding: totalOutstanding,
             transactions: transactions.length,
             itemsSold: transactions.reduce((sum: number, tx: any) => sum + (tx.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) || 0), 0),
             additionalCharges: totalCharges,
@@ -167,6 +194,7 @@ export default function DashboardPage() {
         weekly: data.stats.weekly,
         monthly: data.stats.monthly,
         yearly: data.stats.yearly,
+        today: data.stats.today,
         inventory: data.stats.inventory,
         customers: data.stats.customers
       });
@@ -426,7 +454,10 @@ export default function DashboardPage() {
                       <p className="text-3xl font-bold text-green-600 mt-2">
                         ₹{(timePeriod === 'custom' ? customStats.profit : stats[timePeriod].profit).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Gross profit</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Realized: ₹{(timePeriod === 'custom' ? customStats.realizedProfit : stats[timePeriod].realizedProfit).toLocaleString('en-IN', { maximumFractionDigits: 0 })} • 
+                        Unrealized: ₹{(timePeriod === 'custom' ? customStats.unrealizedProfit : stats[timePeriod].unrealizedProfit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                       <TrendingUp className="w-6 h-6 text-green-600" />
@@ -507,6 +538,23 @@ export default function DashboardPage() {
                     </div>
                     <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
                       <BarChart3 className="w-6 h-6 text-indigo-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {timePeriod === 'custom' ? 'Outstanding (Custom Range)' : timePeriod === 'weekly' ? 'Outstanding (Last 7 Days)' : timePeriod === 'monthly' ? 'Outstanding This Month' : 'Outstanding This Year'}
+                      </p>
+                      <p className="text-3xl font-bold text-orange-600 mt-2">
+                        ₹{(timePeriod === 'custom' ? customStats.outstanding : stats[timePeriod].outstanding).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Pending payments</p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                      <TrendingDown className="w-6 h-6 text-orange-600" />
                     </div>
                   </div>
                 </div>

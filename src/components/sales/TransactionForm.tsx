@@ -65,17 +65,14 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Auto-calculate payment when items change or partial payment is disabled
+  // Auto-calculate payment when items change - default to 0 (full outstanding)
   useEffect(() => {
     if (!allowPartialPayment && transactionItems.length > 0) {
-      const itemsTotal = transactionItems.reduce((sum, item) => sum + item.quantity * item.pricePerUnit, 0);
-      const additionalTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0);
-      const total = itemsTotal + additionalTotal;
-      setFormData(prev => ({ ...prev, paymentReceived: total.toString() }));
+      setFormData(prev => ({ ...prev, paymentReceived: '0' }));
     }
   }, [transactionItems, allowPartialPayment, additionalCharges]);
 
-  // Reset partial payment if customer is removed (walk-in sales must be full payment)
+  // Reset payment toggle if customer is removed
   useEffect(() => {
     if (!formData.customerId && allowPartialPayment) {
       setAllowPartialPayment(false);
@@ -137,9 +134,11 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
         setTransactionItems(mappedItems);
       }
 
-      // Set partial payment if there's a balance
-      if (initialData.balanceAmount > 0) {
+      // Set payment received toggle - check if there was any payment
+      if (initialData.paymentReceived && initialData.paymentReceived > 0) {
         setAllowPartialPayment(true);
+      } else {
+        setAllowPartialPayment(false);
       }
       
       // Set additional charges if editing
@@ -824,7 +823,7 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
             onChange={(e) => {
               setAllowPartialPayment(e.target.checked);
               if (!e.target.checked) {
-                setFormData({ ...formData, paymentReceived: totalAmount.toString() });
+                setFormData({ ...formData, paymentReceived: '0' });
               }
             }}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -835,10 +834,10 @@ export function TransactionForm({ customers, items, onSubmit, onCancel, onCustom
               formData.customerId ? 'text-gray-700' : 'text-gray-500'
             }`}
           >
-            Allow Partial Payment / Outstanding
+            Payment Received
           </label>
           {!allowPartialPayment && formData.customerId && (
-            <span className="ml-auto text-xs text-gray-600 italic">Full payment assumed</span>
+            <span className="ml-auto text-xs text-gray-600 italic">No payment - full outstanding</span>
           )}
         </div>
       </div>

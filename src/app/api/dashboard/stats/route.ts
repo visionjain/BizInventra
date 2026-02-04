@@ -29,12 +29,14 @@ export async function GET(request: NextRequest) {
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearStart = new Date(now.getFullYear(), 0, 1);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Parallel aggregation for better performance
     const [
       weeklyStats,
       monthlyStats,
       yearlyStats,
+      todayStats,
       inventoryStats,
       customerStats,
       salesTrend,
@@ -80,6 +82,25 @@ export async function GET(request: NextRequest) {
             _id: null,
             totalSales: { $sum: '$itemsOnlyTotal' },
             totalProfit: { $sum: '$totalProfit' },
+            realizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $eq: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            unrealizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $gt: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            totalOutstanding: { $sum: '$balanceAmount' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -130,6 +151,25 @@ export async function GET(request: NextRequest) {
             _id: null,
             totalSales: { $sum: '$itemsOnlyTotal' },
             totalProfit: { $sum: '$totalProfit' },
+            realizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $eq: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            unrealizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $gt: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            totalOutstanding: { $sum: '$balanceAmount' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -180,6 +220,25 @@ export async function GET(request: NextRequest) {
             _id: null,
             totalSales: { $sum: '$itemsOnlyTotal' },
             totalProfit: { $sum: '$totalProfit' },
+            realizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $eq: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            unrealizedProfit: { 
+              $sum: { 
+                $cond: [
+                  { $gt: ['$balanceAmount', 0] },
+                  '$totalProfit',
+                  0
+                ]
+              }
+            },
+            totalOutstanding: { $sum: '$balanceAmount' },
             count: { $sum: 1 },
             totalItems: { 
               $sum: { 
@@ -192,6 +251,23 @@ export async function GET(request: NextRequest) {
                 }
               }
             }
+          }
+        }
+      ]).toArray(),
+
+      // Today's transactions stats
+      db.collection('transactions').aggregate([
+        {
+          $match: {
+            userId: decoded.userId,
+            isDeleted: { $ne: true },
+            transactionDate: { $gte: todayStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalOutstanding: { $sum: '$balanceAmount' }
           }
         }
       ]).toArray(),
@@ -397,9 +473,10 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Format response
-    const weekly = weeklyStats[0] || { totalSales: 0, totalProfit: 0, count: 0, totalItems: 0 };
-    const monthly = monthlyStats[0] || { totalSales: 0, totalProfit: 0, count: 0, totalItems: 0 };
-    const yearly = yearlyStats[0] || { totalSales: 0, totalProfit: 0, count: 0, totalItems: 0 };
+    const weekly = weeklyStats[0] || { totalSales: 0, totalProfit: 0, realizedProfit: 0, unrealizedProfit: 0, totalOutstanding: 0, count: 0, totalItems: 0 };
+    const monthly = monthlyStats[0] || { totalSales: 0, totalProfit: 0, realizedProfit: 0, unrealizedProfit: 0, totalOutstanding: 0, count: 0, totalItems: 0 };
+    const yearly = yearlyStats[0] || { totalSales: 0, totalProfit: 0, realizedProfit: 0, unrealizedProfit: 0, totalOutstanding: 0, count: 0, totalItems: 0 };
+    const today = todayStats[0] || { totalOutstanding: 0 };
     const inventory = inventoryStats[0] || { totalItems: 0, lowStock: 0, totalValue: 0 };
     const customers = customerStats[0] || { total: 0, outstanding: 0 };
     const wReturns = weeklyReturns[0] || { totalReturnValue: 0, totalProfitLost: 0 };
@@ -415,6 +492,9 @@ export async function GET(request: NextRequest) {
         weekly: {
           sales: weekly.totalSales,
           profit: weekly.totalProfit,
+          realizedProfit: weekly.realizedProfit,
+          unrealizedProfit: weekly.unrealizedProfit,
+          outstanding: weekly.totalOutstanding,
           transactions: weekly.count,
           itemsSold: weekly.totalItems,
           additionalCharges: wCharges.totalCharges,
@@ -424,6 +504,9 @@ export async function GET(request: NextRequest) {
         monthly: {
           sales: monthly.totalSales,
           profit: monthly.totalProfit,
+          realizedProfit: monthly.realizedProfit,
+          unrealizedProfit: monthly.unrealizedProfit,
+          outstanding: monthly.totalOutstanding,
           transactions: monthly.count,
           itemsSold: monthly.totalItems,
           additionalCharges: mCharges.totalCharges,
@@ -433,11 +516,17 @@ export async function GET(request: NextRequest) {
         yearly: {
           sales: yearly.totalSales,
           profit: yearly.totalProfit,
+          realizedProfit: yearly.realizedProfit,
+          unrealizedProfit: yearly.unrealizedProfit,
+          outstanding: yearly.totalOutstanding,
           transactions: yearly.count,
           itemsSold: yearly.totalItems,
           additionalCharges: yCharges.totalCharges,
           returns: yReturns.totalReturnValue,
           returnsProfit: yReturns.totalProfitLost
+        },
+        today: {
+          outstanding: today.totalOutstanding
         },
         inventory: {
           totalItems: inventory.totalItems,
