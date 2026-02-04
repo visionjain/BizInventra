@@ -41,9 +41,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate && endDate) {
+      // Create dates without forcing UTC to match transaction timezone
+      const startDateTime = new Date(startDate);
+      startDateTime.setHours(0, 0, 0, 0);
+      
+      const endDateTime = new Date(endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+      
       filter.transactionDate = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate + 'T23:59:59.999Z') // Include full end date
+        $gte: startDateTime,
+        $lte: endDateTime
       };
     }
 

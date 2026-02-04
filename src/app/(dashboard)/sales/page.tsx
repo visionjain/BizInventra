@@ -214,19 +214,12 @@ export default function SalesPage() {
 
   const filteredTransactions = transactions.filter(
     (tx: any) => {
-      // Search filter
-      const matchesSearch = tx.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      // Search filter only (date filtering is done server-side)
+      const matchesSearch = searchQuery === '' || 
+        tx.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tx.notes?.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Date filter - use local date instead of UTC
-      const txDateObj = new Date(tx.transactionDate);
-      const year = txDateObj.getFullYear();
-      const month = String(txDateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(txDateObj.getDate()).padStart(2, '0');
-      const txDate = `${year}-${month}-${day}`;
-      const matchesDate = txDate >= startDate && txDate <= endDate;
-      
-      return matchesSearch && matchesDate;
+      return matchesSearch;
     }
   );
   
@@ -236,10 +229,10 @@ export default function SalesPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
   
-  // Reset to page 1 when filters change
+  // Reset to page 1 when search query changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, startDate, endDate]);
+  }, [searchQuery]);
 
   // Use server-calculated stats (accurate for ALL transactions, not just loaded 100)
   const totalSales = stats.totalSales;
