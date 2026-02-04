@@ -444,102 +444,12 @@ export default function SalesPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8" style={{ paddingTop: 'calc(204px + env(safe-area-inset-top))' }}>
         {isLoading ? (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <p className="text-gray-600">Loading sales data...</p>
-            </div>
-            
-            {/* Stats skeleton */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-white p-6 rounded-lg shadow">
-                  <div className="animate-pulse space-y-3">
-                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                    <div className="h-8 bg-gray-200 rounded w-full"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Table skeleton */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="animate-pulse space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <p className="text-gray-600">Loading sales data...</p>
           </div>
         ) : (
           <>
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Sales</p>
-                <p className="text-2xl font-bold text-gray-900">₹{totalSales.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">Items only</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-blue-500" />
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Additional Charges</p>
-                <p className="text-2xl font-bold text-amber-600">₹{totalAdditionalCharges.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-1">Packaging, fuel, etc.</p>
-              </div>
-              <Package className="w-8 h-8 text-amber-500" />
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Payment Received</p>
-                <p className="text-2xl font-bold text-green-600">₹{totalReceived.toFixed(2)}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Outstanding</p>
-                <p className="text-2xl font-bold text-red-600">₹{totalOutstanding.toFixed(2)}</p>
-              </div>
-              <ShoppingCart className="w-8 h-8 text-red-500" />
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm text-gray-600">Total Profit</p>
-                <p className={`text-2xl font-bold ${totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ₹{totalProfitLoss.toFixed(2)}
-                </p>
-              </div>
-              <TrendingUp className={`w-8 h-8 ${totalProfitLoss >= 0 ? 'text-green-500' : 'text-red-500'}`} />
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-200 space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-green-700">✓ Realized (Paid):</span>
-                <span className="font-semibold text-green-700">₹{realizedProfit.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-amber-700">⏳ Unrealized (Credit):</span>
-                <span className="font-semibold text-amber-700">₹{unrealizedProfit.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {showForm ? (
           <div className="bg-white rounded-lg shadow p-6 mb-6">

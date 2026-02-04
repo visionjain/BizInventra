@@ -57,7 +57,19 @@ export default function DashboardPage() {
   const { user, logout, checkAuth } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [timePeriod, setTimePeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  
+  // Get today's date
+  const getTodayDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [timePeriod, setTimePeriod] = useState<'weekly' | 'monthly' | 'yearly' | 'custom'>('custom');
+  const [startDate, setStartDate] = useState(getTodayDate());
+  const [endDate, setEndDate] = useState(getTodayDate());
   const [stats, setStats] = useState<DashboardStats>({
     weekly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
     monthly: { sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 },
@@ -65,6 +77,7 @@ export default function DashboardPage() {
     inventory: { totalItems: 0, lowStock: 0, totalValue: 0 },
     customers: { total: 0, outstanding: 0 },
   });
+  const [customStats, setCustomStats] = useState({ sales: 0, profit: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 });
   const [chartData, setChartData] = useState<ChartData>({
     salesTrend: [],
     topItems: [],
@@ -98,14 +111,48 @@ export default function DashboardPage() {
       console.log('Dashboard: Loading dashboard data...');
       loadDashboardData();
     }
-  }, [user, isInitialized]);
+  }, [user, isInitialized, startDate, endDate, timePeriod]);
 
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
     setLoading(true);
     try {
       console.log('Dashboard: Fetching optimized stats...');
-      // Use optimized server-side aggregation endpoint
+      
+      // If custom period and dates are set, fetch custom stats
+      if (timePeriod === 'custom' && startDate && endDate) {
+        const customResponse = await fetch(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
+        if (customResponse.ok) {
+          const customData = await customResponse.json();
+          const transactions = customData.transactions || [];
+          
+          // Calculate custom stats
+          let totalSales = 0;
+          let totalProfit = 0;
+          let totalCharges = 0;
+          let totalReturns = 0;
+          let totalReturnsProfit = 0;
+          
+          transactions.forEach((tx: any) => {
+            const itemsTotal = tx.items?.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0) || 0;
+            totalSales += itemsTotal;
+            totalProfit += tx.totalProfit || 0;
+            totalCharges += tx.totalAdditionalCharges || 0;
+          });
+          
+          setCustomStats({
+            sales: totalSales,
+            profit: totalProfit,
+            transactions: transactions.length,
+            itemsSold: transactions.reduce((sum: number, tx: any) => sum + (tx.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) || 0), 0),
+            additionalCharges: totalCharges,
+            returns: totalReturns,
+            returnsProfit: totalReturnsProfit
+          });
+        }
+      }
+      
+      // Always fetch predefined period stats
       const response = await fetch('/api/dashboard/stats');
 
       if (!response.ok) {
@@ -255,43 +302,96 @@ export default function DashboardPage() {
           <div className="space-y-8">
             {/* Time Period Selector */}
             <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Overview</h2>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-semibold text-gray-900">Overview</h2>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setTimePeriod('weekly')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        timePeriod === 'weekly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Weekly
+                    </button>
+                    <button
+                      onClick={() => setTimePeriod('monthly')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        timePeriod === 'monthly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      onClick={() => setTimePeriod('yearly')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        timePeriod === 'yearly'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Yearly
+                    </button>
+                    <button
+                      onClick={() => setTimePeriod('custom')}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        timePeriod === 'custom'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      Custom Range
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setTimePeriod('weekly')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      timePeriod === 'weekly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => setTimePeriod('monthly')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      timePeriod === 'monthly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setTimePeriod('yearly')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      timePeriod === 'yearly'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    Yearly
-                  </button>
-                </div>
+                
+                {/* Custom Date Range Selector */}
+                {timePeriod === 'custom' && (
+                  <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-gray-200">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={() => {
+                          const now = new Date();
+                          const year = now.getFullYear();
+                          const month = String(now.getMonth() + 1).padStart(2, '0');
+                          const day = String(now.getDate()).padStart(2, '0');
+                          const today = `${year}-${month}-${day}`;
+                          setStartDate(today);
+                          setEndDate(today);
+                        }}
+                        variant="secondary"
+                        className="whitespace-nowrap"
+                      >
+                        Today
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -302,12 +402,12 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        {timePeriod === 'weekly' ? 'Sales (Last 7 Days)' : timePeriod === 'monthly' ? 'Sales This Month' : 'Sales This Year'}
+                        {timePeriod === 'custom' ? 'Sales (Custom Range)' : timePeriod === 'weekly' ? 'Sales (Last 7 Days)' : timePeriod === 'monthly' ? 'Sales This Month' : 'Sales This Year'}
                       </p>
                       <p className="text-3xl font-bold text-gray-900 mt-2">
-                        ₹{stats[timePeriod].sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{(timePeriod === 'custom' ? customStats.sales : stats[timePeriod].sales).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">{stats[timePeriod].transactions} transactions • Gross sales</p>
+                      <p className="text-xs text-gray-500 mt-1">{timePeriod === 'custom' ? customStats.transactions : stats[timePeriod].transactions} transactions • Gross sales</p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                       <DollarSign className="w-6 h-6 text-blue-600" />
@@ -319,10 +419,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        {timePeriod === 'weekly' ? 'Profit (Last 7 Days)' : timePeriod === 'monthly' ? 'Profit This Month' : 'Profit This Year'}
+                        {timePeriod === 'custom' ? 'Profit (Custom Range)' : timePeriod === 'weekly' ? 'Profit (Last 7 Days)' : timePeriod === 'monthly' ? 'Profit This Month' : 'Profit This Year'}
                       </p>
                       <p className="text-3xl font-bold text-green-600 mt-2">
-                        ₹{stats[timePeriod].profit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{(timePeriod === 'custom' ? customStats.profit : stats[timePeriod].profit).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Gross profit</p>
                     </div>
@@ -336,7 +436,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Transactions</p>
-                      <p className="text-3xl font-bold text-gray-900 mt-2">{stats[timePeriod].transactions}</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">{timePeriod === 'custom' ? customStats.transactions : stats[timePeriod].transactions}</p>
                       <p className="text-xs text-gray-500 mt-1">Sales completed</p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -349,7 +449,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Items Sold</p>
-                      <p className="text-3xl font-bold text-gray-900 mt-2">{stats[timePeriod].itemsSold}</p>
+                      <p className="text-3xl font-bold text-gray-900 mt-2">{timePeriod === 'custom' ? customStats.itemsSold : stats[timePeriod].itemsSold}</p>
                       <p className="text-xs text-gray-500 mt-1">Total quantity</p>
                     </div>
                     <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -362,10 +462,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        {timePeriod === 'weekly' ? 'Charges (Last 7 Days)' : timePeriod === 'monthly' ? 'Charges This Month' : 'Charges This Year'}
+                        {timePeriod === 'custom' ? 'Charges (Custom Range)' : timePeriod === 'weekly' ? 'Charges (Last 7 Days)' : timePeriod === 'monthly' ? 'Charges This Month' : 'Charges This Year'}
                       </p>
                       <p className="text-3xl font-bold text-amber-600 mt-2">
-                        ₹{stats[timePeriod].additionalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{(timePeriod === 'custom' ? customStats.additionalCharges : stats[timePeriod].additionalCharges).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Additional charges income</p>
                     </div>
@@ -379,10 +479,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        {timePeriod === 'weekly' ? 'Returns (Last 7 Days)' : timePeriod === 'monthly' ? 'Returns This Month' : 'Returns This Year'}
+                        {timePeriod === 'custom' ? 'Returns (Custom Range)' : timePeriod === 'weekly' ? 'Returns (Last 7 Days)' : timePeriod === 'monthly' ? 'Returns This Month' : 'Returns This Year'}
                       </p>
                       <p className="text-3xl font-bold text-red-600 mt-2">
-                        ₹{stats[timePeriod].returns.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{(timePeriod === 'custom' ? customStats.returns : stats[timePeriod].returns).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Sales returned</p>
                     </div>
@@ -396,10 +496,10 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">
-                        {timePeriod === 'weekly' ? 'Net Sales (Last 7 Days)' : timePeriod === 'monthly' ? 'Net Sales This Month' : 'Net Sales This Year'}
+                        {timePeriod === 'custom' ? 'Net Sales (Custom Range)' : timePeriod === 'weekly' ? 'Net Sales (Last 7 Days)' : timePeriod === 'monthly' ? 'Net Sales This Month' : 'Net Sales This Year'}
                       </p>
                       <p className="text-3xl font-bold text-indigo-600 mt-2">
-                        ₹{(stats[timePeriod].sales - stats[timePeriod].returns).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{((timePeriod === 'custom' ? customStats.sales - customStats.returns : stats[timePeriod].sales - stats[timePeriod].returns)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Sales - Returns</p>
                     </div>
@@ -718,8 +818,8 @@ export default function DashboardPage() {
                         <Package className="w-4 h-4" />
                       </div>
                       <p className="text-2xl font-bold mt-2">
-                        {stats[timePeriod].transactions > 0 
-                          ? (stats[timePeriod].itemsSold / stats[timePeriod].transactions).toFixed(1)
+                        {(timePeriod === 'custom' ? customStats.transactions : stats[timePeriod].transactions) > 0 
+                          ? ((timePeriod === 'custom' ? customStats.itemsSold : stats[timePeriod].itemsSold) / (timePeriod === 'custom' ? customStats.transactions : stats[timePeriod].transactions)).toFixed(1)
                           : '0.0'}
                       </p>
                     </div>
