@@ -12,7 +12,7 @@ import { Plus, Edit2, Trash2, Search, LogOut, Phone, DollarSign, Eye, X } from '
 export default function CustomersPage() {
   const router = useRouter();
   const { user, logout, checkAuth } = useAuthStore();
-  const { customers, setCustomers, addCustomer, updateCustomer, deleteCustomer, setLoading } = useCustomersStore();
+  const { customers, setCustomers, addCustomer, updateCustomer, deleteCustomer, setLoading, isLoading } = useCustomersStore();
   
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -368,6 +368,40 @@ export default function CustomersPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {isLoading ? (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <p className="text-gray-600">Loading customers...</p>
+            </div>
+            
+            {/* Stats skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="bg-white p-6 rounded-lg shadow">
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                    <div className="h-8 bg-gray-200 rounded w-full"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Table skeleton */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="animate-pulse space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4">
+                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Stats - Only show when not viewing specific customer */}
         {!viewingCustomer && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -984,6 +1018,8 @@ export default function CustomersPage() {
                 )}
               </div>
             )}
+          </>
+        )}
           </>
         )}
       </div>

@@ -15,7 +15,7 @@ import { Capacitor } from '@capacitor/core';
 export default function ItemsPage() {
   const router = useRouter();
   const { user, logout, checkAuth, isAuthenticated } = useAuthStore();
-  const { items, setItems, addItem, updateItem, deleteItem, setLoading } = useItemsStore();
+  const { items, setItems, addItem, updateItem, deleteItem, setLoading, isLoading } = useItemsStore();
   const { stockTransactions, setStockTransactions } = useStockTransactionsStore();
   
   const [showForm, setShowForm] = useState(false);
@@ -837,6 +837,41 @@ export default function ItemsPage() {
           </div>
         ) : (
           <>
+            {isLoading ? (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <p className="text-gray-600">Loading items...</p>
+                </div>
+                
+                {/* Stats skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="bg-white p-6 rounded-lg shadow">
+                      <div className="animate-pulse space-y-3">
+                        <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                        <div className="h-8 bg-gray-200 rounded w-full"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Table skeleton */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <div className="animate-pulse space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="flex items-center space-x-4">
+                        <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                        <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                        <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Inventory Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="bg-white rounded-lg shadow p-6">
@@ -1027,6 +1062,8 @@ export default function ItemsPage() {
                   </div>
                 )}
               </div>
+            )}
+          </>
             )}
           </>
         )}
