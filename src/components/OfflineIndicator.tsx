@@ -42,8 +42,13 @@ export function OfflineIndicator() {
   }, []);
 
   const updatePendingCount = async () => {
-    const count = await syncService.getPendingChangesCount();
-    setPendingChanges(count);
+    try {
+      const count = await syncService.getPendingChangesCount();
+      setPendingChanges(count);
+    } catch (error) {
+      console.error('Failed to update pending count:', error);
+      setPendingChanges(0);
+    }
   };
 
   const handleManualSync = async () => {
@@ -89,7 +94,7 @@ export function OfflineIndicator() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed right-4 z-50" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border shadow-lg ${getStatusColor()}`}>
         <div className="flex items-center gap-2">
           {getStatusIcon()}

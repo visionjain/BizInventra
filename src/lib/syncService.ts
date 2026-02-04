@@ -331,10 +331,15 @@ class SyncService {
       if (!userStr) return 0;
       
       const user = JSON.parse(userStr);
-      const { getPendingSyncItems } = await import('@/lib/db/sqlite');
+      const { getPendingSyncItems, initDatabase } = await import('@/lib/db/sqlite');
+      
+      // Initialize database first
+      await initDatabase();
+      
       const pending = await getPendingSyncItems(user.id);
       return pending.length;
-    } catch {
+    } catch (error) {
+      console.error('Failed to get pending changes count:', error);
       return 0;
     }
   }

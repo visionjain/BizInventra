@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Bizinventra',
   webDir: 'out',
   server: {
-    androidScheme: 'https',
-    cleartext: true
+    url: 'https://bizinventra.vercel.app',
+    cleartext: false
   },
   android: {
     buildOptions: {
