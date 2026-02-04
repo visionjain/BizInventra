@@ -214,7 +214,7 @@ export default function SalesPage() {
 
   const filteredTransactions = transactions.filter(
     (tx: any) => {
-      // Search filter only (date filtering is done server-side)
+      // Search filter
       const matchesSearch = searchQuery === '' || 
         tx.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tx.notes?.toLowerCase().includes(searchQuery.toLowerCase());

@@ -41,23 +41,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (startDate && endDate) {
-      // Parse dates as strings in YYYY-MM-DD format to avoid timezone issues
-      // MongoDB will compare the stored date's local date components
-      filter.$expr = {
-        $and: [
-          {
-            $gte: [
-              { $dateToString: { format: "%Y-%m-%d", date: "$transactionDate" } },
-              startDate
-            ]
-          },
-          {
-            $lte: [
-              { $dateToString: { format: "%Y-%m-%d", date: "$transactionDate" } },
-              endDate
-            ]
-          }
-        ]
+      // Adjust for IST timezone (UTC+5:30)
+      // IST day starts at 18:30 UTC previous day and ends at 18:30 UTC same day
+      const startParts = startDate.split('-').map(Number);
+      const endParts = endDate.split('-').map(Number);
+      
+      // Start: previous day at 18:30 UTC (midnight IST)
+      const startDateTime = new Date(Date.UTC(startParts[0], startParts[1] - 1, startParts[2] - 1, 18, 30, 0, 0));
+      // End: same day at 18:29:59.999 UTC (23:59:59.999 IST)
+      const endDateTime = new Date(Date.UTC(endParts[0], endParts[1] - 1, endParts[2], 18, 29, 59, 999));
+      
+      filter.transactionDate = {
+        $gte: startDateTime,
+        $lte: endDateTime
       };
     }
 
