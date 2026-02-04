@@ -241,9 +241,12 @@ export default function SalesPage() {
   const totalAdditionalCharges = stats.totalAdditionalCharges;
   const totalProfitLoss = stats.totalProfit;
   
-  // Calculate realized vs unrealized profit proportionally
+  // Calculate realized vs unrealized profit
+  // Profit comes only from items, not additional charges
+  // So we calculate based on how much of the items total was actually paid
+  const totalAmountWithCharges = totalSales + totalAdditionalCharges;
   const realizedProfit = totalReceived > 0 && totalSales > 0 
-    ? (totalReceived / totalSales) * totalProfitLoss 
+    ? Math.min((totalReceived / totalAmountWithCharges) * totalProfitLoss, totalProfitLoss)
     : 0;
   const unrealizedProfit = totalProfitLoss - realizedProfit;
 

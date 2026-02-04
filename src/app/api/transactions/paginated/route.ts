@@ -59,12 +59,18 @@ export async function GET(request: NextRequest) {
       {
         $group: {
           _id: null,
-          totalSales: { $sum: '$totalAmount' },
+          totalAmountWithCharges: { $sum: '$totalAmount' },
           totalReceived: { $sum: '$paymentReceived' },
           totalOutstanding: { $sum: '$balanceAmount' },
           totalAdditionalCharges: { $sum: '$totalAdditionalCharges' },
           totalProfit: { $sum: '$totalProfit' },
           totalCount: { $sum: 1 }
+        }
+      },
+      {
+        $addFields: {
+          // Total Sales (items only) = totalAmount - additionalCharges
+          totalSales: { $subtract: ['$totalAmountWithCharges', '$totalAdditionalCharges'] }
         }
       }
     ]).toArray();
