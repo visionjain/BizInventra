@@ -382,7 +382,7 @@ export default function SalesPage() {
       </div>
 
       {/* Navigation */}
-      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(68px + env(safe-area-inset-top))' }}>
+      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(80px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
@@ -413,7 +413,7 @@ export default function SalesPage() {
       </div>
 
       {/* Sales / Returns Tabs */}
-      <div className="bg-white border-b fixed left-0 right-0 z-20" style={{ top: 'calc(120px + env(safe-area-inset-top))' }}>
+      <div className="bg-white border-b fixed left-0 right-0 z-20" style={{ top: 'calc(132px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
             <button
@@ -442,7 +442,7 @@ export default function SalesPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(172px + env(safe-area-inset-top))' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(192px + env(safe-area-inset-top))' }}>
         {isLoading ? (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">

@@ -178,7 +178,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Navigation */}
-      <div className="bg-white shadow-sm border-b fixed left-0 right-0 z-30" style={{ top: 'calc(68px + env(safe-area-inset-top))' }}>
+      <div className="bg-white shadow-sm border-b fixed left-0 right-0 z-30" style={{ top: 'calc(80px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
@@ -208,7 +208,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(120px + env(safe-area-inset-top))' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(140px + env(safe-area-inset-top))' }}>
         {loading ? (
           <div className="space-y-6">
             {/* Loading Skeleton */}
