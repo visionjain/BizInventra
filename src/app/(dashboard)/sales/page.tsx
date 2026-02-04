@@ -29,6 +29,15 @@ export default function SalesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   
+  // Stats from server
+  const [stats, setStats] = useState({
+    totalSales: 0,
+    totalReceived: 0,
+    totalOutstanding: 0,
+    totalAdditionalCharges: 0,
+    totalProfit: 0
+  });
+  
   // Date range filter - default to today
   const getTodayDate = () => {
     const now = new Date();
@@ -59,14 +68,17 @@ export default function SalesPage() {
     if (user && isInitialized) {
       loadData();
     }
-  }, [user, isInitialized]);
+  }, [user, isInitialized, startDate, endDate]); // Reload when date range changes
 
   const loadData = async () => {
     setLoading(true);
     try {
+      // Build query with date range for accurate stats
+      const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
+      
       // Load all data in parallel for faster loading
       const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
-        fetch('/api/transactions/paginated?limit=100'),
+        fetch(txUrl),
         fetch('/api/returns'),
         fetch('/api/items'),
         fetch('/api/customers')
@@ -75,6 +87,10 @@ export default function SalesPage() {
       if (txResponse.ok) {
         const txData = await txResponse.json();
         setTransactions(txData.transactions || []);
+        // Save server-calculated stats (accurate for ALL transactions in date range)
+        if (txData.stats) {
+          setStats(txData.stats);
+        }
       }
 
       if (returnsResponse.ok) {
@@ -225,38 +241,18 @@ export default function SalesPage() {
     setCurrentPage(1);
   }, [searchQuery, startDate, endDate]);
 
-  // Calculate stats based on filtered transactions (date range)
-  const totalSales = filteredTransactions.reduce((sum: number, tx: any) => sum + (tx.totalAmount || 0), 0);
-  const totalReceived = filteredTransactions.reduce((sum: number, tx: any) => sum + (tx.paymentReceived || 0), 0);
-  const totalOutstanding = filteredTransactions.reduce((sum: number, tx: any) => sum + (tx.balanceAmount || 0), 0);
-  const totalAdditionalCharges = filteredTransactions.reduce((sum: number, tx: any) => sum + (tx.totalAdditionalCharges || 0), 0);
+  // Use server-calculated stats (accurate for ALL transactions, not just loaded 100)
+  const totalSales = stats.totalSales;
+  const totalReceived = stats.totalReceived;
+  const totalOutstanding = stats.totalOutstanding;
+  const totalAdditionalCharges = stats.totalAdditionalCharges;
+  const totalProfitLoss = stats.totalProfit;
   
-  // Calculate realized vs unrealized profit proportionally (based on filtered transactions)
-  const realizedProfit = filteredTransactions.reduce((sum: number, tx: any) => {
-    const totalProfit = tx.totalProfit || 0;
-    const totalAmount = tx.totalAmount || 0;
-    const paymentReceived = tx.paymentReceived || 0;
-    
-    if (totalAmount === 0) return sum;
-    
-    // Realized profit is proportional to payment received
-    const realizedPortion = (paymentReceived / totalAmount) * totalProfit;
-    return sum + realizedPortion;
-  }, 0);
-  
-  const unrealizedProfit = filteredTransactions.reduce((sum: number, tx: any) => {
-    const totalProfit = tx.totalProfit || 0;
-    const totalAmount = tx.totalAmount || 0;
-    const balanceAmount = tx.balanceAmount || 0;
-    
-    if (totalAmount === 0) return sum;
-    
-    // Unrealized profit is proportional to outstanding balance
-    const unrealizedPortion = (balanceAmount / totalAmount) * totalProfit;
-    return sum + unrealizedPortion;
-  }, 0);
-  
-  const totalProfitLoss = realizedProfit + unrealizedProfit;
+  // Calculate realized vs unrealized profit proportionally
+  const realizedProfit = totalReceived > 0 && totalSales > 0 
+    ? (totalReceived / totalSales) * totalProfitLoss 
+    : 0;
+  const unrealizedProfit = totalProfitLoss - realizedProfit;
 
   if (!isInitialized || (isInitialized && !user)) {
     return (

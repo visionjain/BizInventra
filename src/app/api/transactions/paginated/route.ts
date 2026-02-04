@@ -43,6 +43,31 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    // Calculate aggregated stats for ALL transactions (not just paginated)
+    const statsAggregation = await db.collection('transactions').aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: '$totalAmount' },
+          totalReceived: { $sum: '$paymentReceived' },
+          totalOutstanding: { $sum: '$balanceAmount' },
+          totalAdditionalCharges: { $sum: '$totalAdditionalCharges' },
+          totalProfit: { $sum: '$totalProfit' },
+          totalCount: { $sum: 1 }
+        }
+      }
+    ]).toArray();
+
+    const stats = statsAggregation[0] || {
+      totalSales: 0,
+      totalReceived: 0,
+      totalOutstanding: 0,
+      totalAdditionalCharges: 0,
+      totalProfit: 0,
+      totalCount: 0
+    };
+
     // Get transactions with pagination
     const transactions = await db.collection('transactions')
       .find(filter)
@@ -50,9 +75,6 @@ export async function GET(request: NextRequest) {
       .skip(skip)
       .limit(limit)
       .toArray();
-
-    // Get total count for pagination
-    const totalCount = await db.collection('transactions').countDocuments(filter);
 
     // Enrich with customer names
     const customerIds = [...new Set(transactions.map(tx => tx.customerId).filter(Boolean))];
@@ -73,11 +95,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       transactions: enrichedTransactions,
+      stats: {
+        totalSales: stats.totalSales || 0,
+        totalReceived: stats.totalReceived || 0,
+        totalOutstanding: stats.totalOutstanding || 0,
+        totalAdditionalCharges: stats.totalAdditionalCharges || 0,
+        totalProfit: stats.totalProfit || 0
+      },
       pagination: {
-        total: totalCount,
+        total: stats.totalCount || 0,
         limit,
         skip,
-        hasMore: skip + limit < totalCount
+        hasMore: skip + limit < (stats.totalCount || 0)
       }
     });
   } catch (error) {

@@ -46,9 +46,24 @@ export default function ItemsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   
-  // Stock history pagination
+  // Stock history pagination and date filter
   const [stockHistoryPage, setStockHistoryPage] = useState(1);
-  const stockHistoryPerPage = 10;
+  const stockHistoryPerPage = 50;
+  const [stockHistoryTotal, setStockHistoryTotal] = useState(0);
+  const [stockHistoryLoading, setStockHistoryLoading] = useState(false);
+  
+  // Stock history date range - default to last 30 days
+  const getDefaultStockDates = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  };
+  const [stockStartDate, setStockStartDate] = useState(getDefaultStockDates().start);
+  const [stockEndDate, setStockEndDate] = useState(getDefaultStockDates().end);
 
   // Check auth on mount
   useEffect(() => {
@@ -218,19 +233,27 @@ export default function ItemsPage() {
     setSelectedItem(item);
     setShowStockHistory(true);
     setStockHistoryPage(1);
-    
+    await loadStockHistory(item._id || item.id, 0);
+  };
+  
+  const loadStockHistory = async (itemId?: string, skip: number = 0) => {
+    setStockHistoryLoading(true);
     try {
-      const response = await fetch(`/api/stock-transactions?itemId=${item._id || item.id}`);
+      let url = `/api/stock-transactions/paginated?limit=${stockHistoryPerPage}&skip=${skip}&startDate=${stockStartDate}&endDate=${stockEndDate}`;
+      if (itemId) {
+        url += `&itemId=${itemId}`;
+      }
+      
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        // Sort by date descending (newest first)
-        const sorted = (data.stockTransactions || []).sort((a: any, b: any) => 
-          new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-        );
-        setStockTransactions(sorted);
+        setStockTransactions(data.stockTransactions || []);
+        setStockHistoryTotal(data.pagination?.total || 0);
       }
     } catch (error) {
       console.error('Failed to load stock history:', error);
+    } finally {
+      setStockHistoryLoading(false);
     }
   };
 
@@ -238,20 +261,7 @@ export default function ItemsPage() {
     setSelectedItem(null);
     setShowStockHistory(true);
     setStockHistoryPage(1);
-    
-    try {
-      const response = await fetch('/api/stock-transactions');
-      if (response.ok) {
-        const data = await response.json();
-        // Sort by date descending (newest first)
-        const sorted = (data.stockTransactions || []).sort((a: any, b: any) => 
-          new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-        );
-        setStockTransactions(sorted);
-      }
-    } catch (error) {
-      console.error('Failed to load stock history:', error);
-    }
+    await loadStockHistory(undefined, 0);
   };
 
   const handleViewPriceHistory = (item: any) => {
@@ -515,18 +525,65 @@ export default function ItemsPage() {
                 Close
               </Button>
             </div>
-            {stockTransactions.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No stock transactions found</p>
-            ) : (() => {
-              // Apply pagination
-              const totalPages = Math.ceil(stockTransactions.length / stockHistoryPerPage);
-              const startIndex = (stockHistoryPage - 1) * stockHistoryPerPage;
-              const endIndex = startIndex + stockHistoryPerPage;
-              const paginatedTx = stockTransactions.slice(startIndex, endIndex);
-              
-              return (
-                <>
-                  <div className="overflow-x-auto">
+            
+            {/* Date Range Filter */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Date Range</label>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-600 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={stockStartDate}
+                    onChange={(e) => {
+                      setStockStartDate(e.target.value);
+                      setStockHistoryPage(1);
+                      loadStockHistory(selectedItem?._id || selectedItem?.id, 0);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-600 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={stockEndDate}
+                    onChange={(e) => {
+                      setStockEndDate(e.target.value);
+                      setStockHistoryPage(1);
+                      loadStockHistory(selectedItem?._id || selectedItem?.id, 0);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    onClick={() => {
+                      const defaults = getDefaultStockDates();
+                      setStockStartDate(defaults.start);
+                      setStockEndDate(defaults.end);
+                      setStockHistoryPage(1);
+                      loadStockHistory(selectedItem?._id || selectedItem?.id, 0);
+                    }}
+                    variant="secondary"
+                    className="whitespace-nowrap"
+                  >
+                    Last 30 Days
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {stockHistoryLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="ml-3 text-gray-600">Loading stock history...</p>
+              </div>
+            ) : stockTransactions.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No stock transactions found for the selected date range</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
@@ -540,7 +597,7 @@ export default function ItemsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {paginatedTx.map((tx: any) => (
+                        {stockTransactions.map((tx: any) => (
                           <tr key={tx._id || tx.id}>
                             <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                               {new Date(tx.transactionDate).toLocaleString()}
@@ -573,38 +630,34 @@ export default function ItemsPage() {
                   </div>
                   
                   {/* Pagination */}
-                  {totalPages > 1 && (
+                  {stockHistoryTotal > stockHistoryPerPage && (
                     <div className="mt-4 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
                       <div className="text-sm text-gray-700">
-                        Showing {startIndex + 1} to {Math.min(endIndex, stockTransactions.length)} of {stockTransactions.length} results
+                        Showing {(stockHistoryPage - 1) * stockHistoryPerPage + 1} to {Math.min(stockHistoryPage * stockHistoryPerPage, stockHistoryTotal)} of {stockHistoryTotal} results
                       </div>
                       <div className="flex gap-2">
                         <Button
-                          onClick={() => setStockHistoryPage(prev => Math.max(1, prev - 1))}
+                          onClick={() => {
+                            const newPage = Math.max(1, stockHistoryPage - 1);
+                            setStockHistoryPage(newPage);
+                            loadStockHistory(selectedItem?._id || selectedItem?.id, (newPage - 1) * stockHistoryPerPage);
+                          }}
                           disabled={stockHistoryPage === 1}
                           variant="secondary"
                           className="px-3 py-1 text-sm"
                         >
                           Previous
                         </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                            <button
-                              key={page}
-                              onClick={() => setStockHistoryPage(page)}
-                              className={`px-3 py-1 text-sm rounded ${
-                                stockHistoryPage === page
-                                  ? 'bg-blue-600 text-white'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          ))}
-                        </div>
+                        <span className="px-3 py-1 text-sm text-gray-700">
+                          Page {stockHistoryPage} of {Math.ceil(stockHistoryTotal / stockHistoryPerPage)}
+                        </span>
                         <Button
-                          onClick={() => setStockHistoryPage(prev => Math.min(totalPages, prev + 1))}
-                          disabled={stockHistoryPage === totalPages}
+                          onClick={() => {
+                            const newPage = Math.min(Math.ceil(stockHistoryTotal / stockHistoryPerPage), stockHistoryPage + 1);
+                            setStockHistoryPage(newPage);
+                            loadStockHistory(selectedItem?._id || selectedItem?.id, (newPage - 1) * stockHistoryPerPage);
+                          }}
+                          disabled={stockHistoryPage >= Math.ceil(stockHistoryTotal / stockHistoryPerPage)}
                           variant="secondary"
                           className="px-3 py-1 text-sm"
                         >
@@ -613,9 +666,8 @@ export default function ItemsPage() {
                       </div>
                     </div>
                   )}
-                </>
-              );
-            })()}
+              </>
+            )}
           </div>
         ) : showPriceHistory ? (
           <div className="bg-white rounded-lg shadow p-6">
