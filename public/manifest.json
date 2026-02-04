@@ -1,0 +1,19 @@
+{
+  "name": "Bizinventra",
+  "short_name": "Bizinventra",
+  "description": "Offline-first inventory and accounting application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "prefer_related_applications": false
+}

@@ -1,0 +1,343 @@
+import Database from 'better-sqlite3';
+import path from 'path';
+import { existsSync, mkdirSync } from 'fs';
+
+let db: Database.Database | null = null;
+
+export function getLocalDB(): Database.Database {
+  if (db) return db;
+
+  // Create data directory if it doesn't exist
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
+
+  const dbPath = path.join(dataDir, 'bizinventra.db');
+  db = new Database(dbPath);
+  
+  // Enable WAL mode for better concurrency
+  db.pragma('journal_mode = WAL');
+  
+  initializeTables();
+  
+  return db;
+}
+
+function initializeTables() {
+  if (!db) return;
+
+  // Items table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS items (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      buyPrice REAL NOT NULL,
+      sellPrice REAL NOT NULL,
+      quantity INTEGER NOT NULL,
+      minStockLevel INTEGER DEFAULT 0,
+      category TEXT,
+      barcode TEXT,
+      imageUrl TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      isDeleted INTEGER DEFAULT 0,
+      syncStatus TEXT DEFAULT 'synced',
+      lastModifiedAt TEXT
+    )
+  `);
+
+  // Customers table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      phoneNumber TEXT NOT NULL,
+      email TEXT,
+      address TEXT,
+      outstandingBalance REAL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      isDeleted INTEGER DEFAULT 0,
+      syncStatus TEXT DEFAULT 'synced',
+      lastModifiedAt TEXT
+    )
+  `);
+
+  // Transactions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      customerId TEXT,
+      items TEXT NOT NULL,
+      totalAmount REAL NOT NULL,
+      totalProfit REAL NOT NULL,
+      additionalCharges TEXT,
+      totalAdditionalCharges REAL DEFAULT 0,
+      grandTotal REAL NOT NULL,
+      paymentReceived REAL NOT NULL,
+      balanceAmount REAL NOT NULL,
+      paymentMethod TEXT NOT NULL,
+      notes TEXT,
+      transactionDate TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      isDeleted INTEGER DEFAULT 0,
+      syncStatus TEXT DEFAULT 'synced',
+      lastModifiedAt TEXT
+    )
+  `);
+
+  // Stock Transactions table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stockTransactions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      itemId TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      transactionType TEXT NOT NULL,
+      notes TEXT,
+      transactionDate TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      syncStatus TEXT DEFAULT 'synced',
+      lastModifiedAt TEXT
+    )
+  `);
+
+  // Sync metadata table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS syncMetadata (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tableName TEXT NOT NULL,
+      lastSyncTime TEXT NOT NULL,
+      syncDirection TEXT NOT NULL
+    )
+  `);
+
+  // Pending changes queue (for offline changes to sync later)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pendingChanges (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tableName TEXT NOT NULL,
+      recordId TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      data TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      retryCount INTEGER DEFAULT 0
+    )
+  `);
+
+  // Create indexes for better performance
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_items_userId ON items(userId);
+    CREATE INDEX IF NOT EXISTS idx_items_syncStatus ON items(syncStatus);
+    CREATE INDEX IF NOT EXISTS idx_customers_userId ON customers(userId);
+    CREATE INDEX IF NOT EXISTS idx_customers_syncStatus ON customers(syncStatus);
+    CREATE INDEX IF NOT EXISTS idx_transactions_userId ON transactions(userId);
+    CREATE INDEX IF NOT EXISTS idx_transactions_customerId ON transactions(customerId);
+    CREATE INDEX IF NOT EXISTS idx_transactions_syncStatus ON transactions(syncStatus);
+    CREATE INDEX IF NOT EXISTS idx_stockTransactions_userId ON stockTransactions(userId);
+    CREATE INDEX IF NOT EXISTS idx_stockTransactions_itemId ON stockTransactions(itemId);
+    CREATE INDEX IF NOT EXISTS idx_pendingChanges_tableName ON pendingChanges(tableName);
+  `);
+}
+
+export function closeDB() {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
+// Helper functions for CRUD operations
+export const localDB = {
+  // Items
+  getItems: (userId: string) => {
+    const db = getLocalDB();
+    return db.prepare('SELECT * FROM items WHERE userId = ? AND isDeleted = 0').all(userId);
+  },
+  
+  getItem: (id: string) => {
+    const db = getLocalDB();
+    return db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+  },
+  
+  insertItem: (item: any) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO items (id, userId, name, description, buyPrice, sellPrice, quantity, minStockLevel, category, barcode, imageUrl, createdAt, updatedAt, syncStatus, lastModifiedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      item.id,
+      item.userId,
+      item.name,
+      item.description || null,
+      item.buyPrice,
+      item.sellPrice,
+      item.quantity,
+      item.minStockLevel || 0,
+      item.category || null,
+      item.barcode || null,
+      item.imageUrl || null,
+      item.createdAt,
+      item.updatedAt,
+      item.syncStatus || 'synced',
+      item.lastModifiedAt || new Date().toISOString()
+    );
+  },
+  
+  updateItem: (id: string, updates: any) => {
+    const db = getLocalDB();
+    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = [...Object.values(updates), id];
+    const stmt = db.prepare(`UPDATE items SET ${fields}, updatedAt = ?, lastModifiedAt = ? WHERE id = ?`);
+    return stmt.run(...values, new Date().toISOString(), new Date().toISOString());
+  },
+  
+  deleteItem: (id: string) => {
+    const db = getLocalDB();
+    const stmt = db.prepare('UPDATE items SET isDeleted = 1, updatedAt = ?, lastModifiedAt = ? WHERE id = ?');
+    return stmt.run(new Date().toISOString(), new Date().toISOString(), id);
+  },
+
+  // Customers
+  getCustomers: (userId: string) => {
+    const db = getLocalDB();
+    return db.prepare('SELECT * FROM customers WHERE userId = ? AND isDeleted = 0').all(userId);
+  },
+  
+  insertCustomer: (customer: any) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO customers (id, userId, name, phoneNumber, email, address, outstandingBalance, createdAt, updatedAt, syncStatus, lastModifiedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      customer.id,
+      customer.userId,
+      customer.name,
+      customer.phoneNumber,
+      customer.email || null,
+      customer.address || null,
+      customer.outstandingBalance || 0,
+      customer.createdAt,
+      customer.updatedAt,
+      customer.syncStatus || 'synced',
+      customer.lastModifiedAt || new Date().toISOString()
+    );
+  },
+  
+  updateCustomer: (id: string, updates: any) => {
+    const db = getLocalDB();
+    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = [...Object.values(updates), id];
+    const stmt = db.prepare(`UPDATE customers SET ${fields}, updatedAt = ?, lastModifiedAt = ? WHERE id = ?`);
+    return stmt.run(...values, new Date().toISOString(), new Date().toISOString());
+  },
+
+  // Transactions
+  getTransactions: (userId: string) => {
+    const db = getLocalDB();
+    const rows = db.prepare('SELECT * FROM transactions WHERE userId = ? AND isDeleted = 0 ORDER BY transactionDate DESC').all(userId);
+    return rows.map((row: any) => ({
+      ...row,
+      items: JSON.parse(row.items),
+      additionalCharges: row.additionalCharges ? JSON.parse(row.additionalCharges) : []
+    }));
+  },
+  
+  insertTransaction: (transaction: any) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO transactions (id, userId, customerId, items, totalAmount, totalProfit, additionalCharges, totalAdditionalCharges, grandTotal, paymentReceived, balanceAmount, paymentMethod, notes, transactionDate, createdAt, updatedAt, syncStatus, lastModifiedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      transaction.id,
+      transaction.userId,
+      transaction.customerId || null,
+      JSON.stringify(transaction.items),
+      transaction.totalAmount,
+      transaction.totalProfit,
+      JSON.stringify(transaction.additionalCharges || []),
+      transaction.totalAdditionalCharges || 0,
+      transaction.grandTotal,
+      transaction.paymentReceived,
+      transaction.balanceAmount,
+      transaction.paymentMethod,
+      transaction.notes || null,
+      transaction.transactionDate,
+      transaction.createdAt,
+      transaction.updatedAt,
+      transaction.syncStatus || 'synced',
+      transaction.lastModifiedAt || new Date().toISOString()
+    );
+  },
+
+  // Stock Transactions
+  insertStockTransaction: (stockTx: any) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO stockTransactions (id, userId, itemId, quantity, transactionType, notes, transactionDate, createdAt, syncStatus, lastModifiedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    return stmt.run(
+      stockTx.id,
+      stockTx.userId,
+      stockTx.itemId,
+      stockTx.quantity,
+      stockTx.transactionType,
+      stockTx.notes || null,
+      stockTx.transactionDate,
+      stockTx.createdAt,
+      stockTx.syncStatus || 'synced',
+      stockTx.lastModifiedAt || new Date().toISOString()
+    );
+  },
+
+  // Pending changes
+  addPendingChange: (tableName: string, recordId: string, operation: string, data: any) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO pendingChanges (tableName, recordId, operation, data, createdAt)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    return stmt.run(tableName, recordId, operation, JSON.stringify(data), new Date().toISOString());
+  },
+  
+  getPendingChanges: () => {
+    const db = getLocalDB();
+    const rows = db.prepare('SELECT * FROM pendingChanges ORDER BY id ASC').all();
+    return rows.map((row: any) => ({
+      ...row,
+      data: JSON.parse(row.data)
+    }));
+  },
+  
+  removePendingChange: (id: number) => {
+    const db = getLocalDB();
+    const stmt = db.prepare('DELETE FROM pendingChanges WHERE id = ?');
+    return stmt.run(id);
+  },
+
+  // Sync metadata
+  getLastSyncTime: (tableName: string, direction: string) => {
+    const db = getLocalDB();
+    const row = db.prepare('SELECT lastSyncTime FROM syncMetadata WHERE tableName = ? AND syncDirection = ? ORDER BY id DESC LIMIT 1').get(tableName, direction) as any;
+    return row?.lastSyncTime;
+  },
+  
+  updateSyncTime: (tableName: string, direction: string) => {
+    const db = getLocalDB();
+    const stmt = db.prepare(`
+      INSERT INTO syncMetadata (tableName, lastSyncTime, syncDirection)
+      VALUES (?, ?, ?)
+    `);
+    return stmt.run(tableName, new Date().toISOString(), direction);
+  },
+};
