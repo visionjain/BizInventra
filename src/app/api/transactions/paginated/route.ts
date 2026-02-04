@@ -37,16 +37,23 @@ export async function GET(request: NextRequest) {
     };
 
     if (startDate && endDate) {
-      // Create dates without forcing UTC to match transaction timezone
-      const startDateTime = new Date(startDate);
-      startDateTime.setHours(0, 0, 0, 0);
-      
-      const endDateTime = new Date(endDate);
-      endDateTime.setHours(23, 59, 59, 999);
-      
-      filter.transactionDate = {
-        $gte: startDateTime,
-        $lte: endDateTime
+      // Parse dates as strings in YYYY-MM-DD format to avoid timezone issues
+      // MongoDB will compare the stored date's local date components
+      filter.$expr = {
+        $and: [
+          {
+            $gte: [
+              { $dateToString: { format: "%Y-%m-%d", date: "$transactionDate" } },
+              startDate
+            ]
+          },
+          {
+            $lte: [
+              { $dateToString: { format: "%Y-%m-%d", date: "$transactionDate" } },
+              endDate
+            ]
+          }
+        ]
       };
     }
 
