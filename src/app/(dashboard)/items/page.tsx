@@ -473,7 +473,7 @@ export default function ItemsPage() {
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <img src="/logo.png" alt="Bizinventra" className="h-12 w-12" />
-              <img src="/titlelogo.png" alt="Bizinventra" className="h-10" />
+              <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
@@ -490,7 +490,7 @@ export default function ItemsPage() {
       </div>
 
       {/* Navigation */}
-      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(80px + env(safe-area-inset-top))' }}>
+      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(92px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
@@ -520,7 +520,7 @@ export default function ItemsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(140px + env(safe-area-inset-top))' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(152px + env(safe-area-inset-top))' }}>
         {showForm ? (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-bold mb-4">

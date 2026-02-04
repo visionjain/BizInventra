@@ -360,20 +360,20 @@ export default function SalesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow fixed top-0 left-0 right-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <img src="/logo.png" alt="Bizinventra" className="h-12 w-12" />
-              <img src="/titlelogo.png" alt="Bizinventra" className="h-10" />
+              <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Sales</h2>
                 <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
               </div>
-              <Button onClick={handleLogout} variant="secondary" className="flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
+              <Button onClick={handleLogout} variant="outline">
+                <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </Button>
             </div>
@@ -382,7 +382,7 @@ export default function SalesPage() {
       </div>
 
       {/* Navigation */}
-      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(80px + env(safe-area-inset-top))' }}>
+      <div className="bg-white border-b fixed left-0 right-0 z-30" style={{ top: 'calc(92px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
@@ -413,7 +413,7 @@ export default function SalesPage() {
       </div>
 
       {/* Sales / Returns Tabs */}
-      <div className="bg-white border-b fixed left-0 right-0 z-20" style={{ top: 'calc(132px + env(safe-area-inset-top))' }}>
+      <div className="bg-white border-b fixed left-0 right-0 z-20" style={{ top: 'calc(144px + env(safe-area-inset-top))' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-1">
             <button
@@ -442,7 +442,7 @@ export default function SalesPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(192px + env(safe-area-inset-top))' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ paddingTop: 'calc(204px + env(safe-area-inset-top))' }}>
         {isLoading ? (
           <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
