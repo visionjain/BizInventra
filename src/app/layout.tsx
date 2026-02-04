@@ -39,13 +39,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {children}
         <OfflineIndicator />
-        {/* Fixed footer spacer for Android navigation bar */}
+        {/* Fixed footer spacer for Android navigation bar - only visible on mobile */}
         <div 
-          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 pointer-events-none md:hidden"
           style={{ 
             height: 'max(16px, env(safe-area-inset-bottom))',
             paddingBottom: 'env(safe-area-inset-bottom)'
