@@ -381,19 +381,19 @@ export default function DashboardPage() {
               Dashboard
             </button>
             <button
-              onClick={() => window.location.href = '/items/'}
+              onClick={() => window.location.href = '/items/index.html'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Items
             </button>
             <button
-              onClick={() => window.location.href = '/customers/'}
+              onClick={() => window.location.href = '/customers/index.html'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Customers
             </button>
             <button
-              onClick={() => window.location.href = '/sales/'}
+              onClick={() => window.location.href = '/sales/index.html'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Sales
@@ -816,21 +816,21 @@ export default function DashboardPage() {
                   <h3 className="text-sm font-medium mb-4">Quick Actions</h3>
                   <div className="space-y-3">
                     <button
-                      onClick={() => router.push('/sales')}
+                      onClick={() => window.location.href = '/sales/index.html'}
                       className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg px-4 py-3 text-left transition-colors"
                     >
                       <p className="font-semibold">New Sale</p>
                       <p className="text-xs opacity-90">Create transaction</p>
                     </button>
                     <button
-                      onClick={() => router.push('/items')}
+                      onClick={() => window.location.href = '/items/index.html'}
                       className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg px-4 py-3 text-left transition-colors"
                     >
                       <p className="font-semibold">Add Item</p>
                       <p className="text-xs opacity-90">Manage inventory</p>
                     </button>
                     <button
-                      onClick={() => router.push('/customers')}
+                      onClick={() => window.location.href = '/customers/index.html'}
                       className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg px-4 py-3 text-left transition-colors"
                     >
                       <p className="font-semibold">View Customers</p>
