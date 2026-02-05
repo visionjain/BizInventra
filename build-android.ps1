@@ -6,6 +6,10 @@ Write-Host "Building for Android..." -ForegroundColor Cyan
 Write-Host "Temporarily moving API folder..." -ForegroundColor Yellow
 Move-Item -Path "src\app\api" -Destination "api-backup" -Force -ErrorAction SilentlyContinue
 
+# Also remove .next cache to avoid validator errors
+Write-Host "Cleaning .next cache..." -ForegroundColor Yellow
+Remove-Item -Path ".next" -Recurse -Force -ErrorAction SilentlyContinue
+
 # Backup production config
 Write-Host "Backing up production config..." -ForegroundColor Yellow
 Copy-Item -Path "next.config.ts" -Destination "next.config.prod.backup" -Force
