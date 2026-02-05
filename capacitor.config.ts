@@ -4,10 +4,8 @@ const config: CapacitorConfig = {
   appId: 'com.bizinventra.app',
   appName: 'Bizinventra',
   webDir: 'out',
-  server: {
-    url: 'https://bizinventra.vercel.app',
-    cleartext: false
-  },
+  // server.url should NOT be set for production - it forces the app to load from web instead of local files
+  // Only use server.url during development with live reload
   android: {
     buildOptions: {
       keystorePath: undefined,
