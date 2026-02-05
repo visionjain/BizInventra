@@ -85,7 +85,7 @@ class SyncService {
       const { executeQuery } = await import('@/lib/db/sqlite');
       
       // Get user info from local storage
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('current_user');
       if (!userStr) {
         throw new Error('No user found');
       }
@@ -327,7 +327,7 @@ class SyncService {
         return 0;
       }
 
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('current_user');
       if (!userStr) return 0;
       
       const user = JSON.parse(userStr);
