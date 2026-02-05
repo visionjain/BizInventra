@@ -103,27 +103,18 @@ export default function DashboardPage() {
     console.log('Dashboard: Starting auth check...');
     checkAuth();
     console.log('Dashboard: Auth check called');
-    // Delay to ensure state updates from checkAuth
-    const timer = setTimeout(() => {
-      console.log('Dashboard: Setting initialized to true');
-      setIsInitialized(true);
-    }, 300);
-    
-    return () => clearTimeout(timer);
+    // Immediate initialization - no delay needed
+    setIsInitialized(true);
   }, [checkAuth]);
 
   useEffect(() => {
     console.log('Dashboard: isInitialized=', isInitialized, 'user=', user ? 'exists' : 'null');
     if (isInitialized && !user) {
       console.log('Dashboard: No user found, redirecting to login');
-      // Use window.location for Capacitor compatibility
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      } else {
-        router.push('/login');
-      }
+      // Direct redirect for Capacitor
+      window.location.replace('/login/');
     }
-  }, [isInitialized, user, router]);
+  }, [isInitialized, user]);
 
   useEffect(() => {
     console.log('Dashboard: Data load check - user=', user ? 'exists' : 'null', 'isInitialized=', isInitialized);
@@ -318,18 +309,23 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     logout();
-    // Use window.location for Capacitor compatibility
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    } else {
-      router.push('/login');
-    }
+    // Use window.location.replace for Capacitor compatibility
+    window.location.replace('/login/');
   };
 
-  if (!isInitialized || (isInitialized && !user)) {
+  if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+        <p className="text-gray-600">Initializing...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    // Will redirect in useEffect, show loading briefly
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600">Redirecting to login...</p>
       </div>
     );
   }

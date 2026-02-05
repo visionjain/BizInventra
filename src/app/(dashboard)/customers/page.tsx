@@ -55,9 +55,9 @@ export default function CustomersPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (isInitialized && !user) {
-      router.push('/login');
+      window.location.replace('/login/');
     }
-  }, [isInitialized, user, router]);
+  }, [isInitialized, user]);
 
   // Load customers when user is available
   useEffect(() => {
@@ -389,7 +389,7 @@ export default function CustomersPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    window.location.replace('/login/');
   };
 
   const filteredCustomers = customers.filter(

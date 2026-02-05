@@ -77,9 +77,9 @@ export default function ItemsPage() {
   // Redirect to login if not authenticated (only after initialization)
   useEffect(() => {
     if (isInitialized && !user) {
-      router.push('/login');
+      window.location.replace('/login/');
     }
-  }, [isInitialized, user, router]);
+  }, [isInitialized, user]);
 
   // Load items when user is available
   useEffect(() => {
@@ -279,7 +279,7 @@ export default function ItemsPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    window.location.replace('/login/');
   };
 
   const handleAddStock = (item: any) => {

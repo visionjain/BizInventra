@@ -67,9 +67,9 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (isInitialized && !user) {
-      router.push('/login');
+      window.location.replace('/login/');
     }
-  }, [isInitialized, user, router]);
+  }, [isInitialized, user]);
 
   useEffect(() => {
     if (user && isInitialized) {
@@ -454,7 +454,7 @@ export default function SalesPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    window.location.replace('/login/');
   };
 
   const filteredTransactions = transactions.filter(

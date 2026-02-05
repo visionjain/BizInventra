@@ -46,10 +46,8 @@ export default function LoginPage() {
             await storeUserOffline(data.user, password);
           }
           
-          // Small delay to ensure state is set before redirect
-          setTimeout(() => {
-            router.push('/');
-          }, 100);
+          // Redirect to dashboard - use window.location for Capacitor
+          window.location.replace('/');
           onlineSuccess = true;
         } else {
           setErrorMsg(data.error || 'Login failed');
@@ -64,9 +62,8 @@ export default function LoginPage() {
           
           if (offlineUser) {
             setUser(offlineUser.user, offlineUser.token);
-            setTimeout(() => {
-              router.push('/');
-            }, 100);
+            // Redirect using window.location for Capacitor
+            window.location.replace('/');
             onlineSuccess = true;
           } else {
             setErrorMsg('Login failed. No internet and no offline data.');
