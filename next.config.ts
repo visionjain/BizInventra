@@ -1,13 +1,11 @@
 import type { NextConfig } from "next";
 
-// Android-specific config: static export without API routes
+// Production config for Vercel - includes API routes
+// For Android builds, use build:android script which uses next.config.android.ts
 const nextConfig: NextConfig = {
-  output: 'export',
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;
