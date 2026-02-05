@@ -11,7 +11,27 @@ export function AppInitializer() {
         
         // Only on native platforms
         if (platform === 'android' || platform === 'ios') {
-          // Check if user is logged in
+          console.log('Native platform detected:', platform);
+          
+          // Check authentication first
+          const token = localStorage.getItem('auth_token');
+          console.log('Auth token check:', token ? 'exists' : 'missing');
+          
+          // If no token and not on login page, redirect to login
+          if (!token && !window.location.pathname.includes('/login')) {
+            console.log('No token, redirecting to login from:', window.location.pathname);
+            window.location.href = '/login/index.html';
+            return;
+          }
+          
+          // If token exists and on login page, redirect to dashboard
+          if (token && window.location.pathname.includes('/login')) {
+            console.log('Token exists, redirecting to dashboard');
+            window.location.href = '/index.html';
+            return;
+          }
+          
+          // Check if user is logged in for sync
           const userStr = localStorage.getItem('current_user');
           if (!userStr) return;
           
