@@ -61,15 +61,20 @@ export default function SalesPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    checkAuth();
-    setIsInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized && !user) {
-      window.location.replace('/login/');
+    // Check localStorage directly for faster auth check
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
+      
+      if (!token || !userStr) {
+        window.location.replace('/login/');
+        return;
+      }
+      
+      checkAuth();
+      setIsInitialized(true);
     }
-  }, [isInitialized, user]);
+  }, []);
 
   useEffect(() => {
     if (user && isInitialized) {

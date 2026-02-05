@@ -48,16 +48,20 @@ export default function CustomersPage() {
 
   // Check auth on mount
   useEffect(() => {
-    checkAuth();
-    setIsInitialized(true);
-  }, []);
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (isInitialized && !user) {
-      window.location.replace('/login/');
+    // Check localStorage directly for faster auth check
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
+      
+      if (!token || !userStr) {
+        window.location.replace('/login/');
+        return;
+      }
+      
+      checkAuth();
+      setIsInitialized(true);
     }
-  }, [isInitialized, user]);
+  }, []);
 
   // Load customers when user is available
   useEffect(() => {

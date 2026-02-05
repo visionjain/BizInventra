@@ -9,6 +9,9 @@ import { PullToRefresh } from '@/components/PullToRefresh';
 import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
+// Global flag to prevent rendering before redirect
+let isRedirecting = false;
+
 interface DashboardStats {
   weekly: {
     sales: number;
@@ -70,8 +73,6 @@ export default function DashboardPage() {
   const { user, logout, checkAuth } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
-  const hasCheckedAuth = useRef(false);
-  const isRedirecting = useRef(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -102,32 +103,37 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // Only run auth check once
-    if (hasCheckedAuth.current) return;
-    
-    console.log('Dashboard: Starting auth check...');
-    checkAuth();
-    hasCheckedAuth.current = true;
-    console.log('Dashboard: Auth check called, user=', user ? 'exists' : 'null');
-    
-    // Mark as initialized after auth check
-    setIsInitialized(true);
-    console.log('Dashboard: Initialization complete');
-  }, []); // Empty deps - only run once on mount
-
-  useEffect(() => {
-    // Check authentication after initialization
-    if (!isInitialized) return;
-    if (isRedirecting.current) return; // Prevent multiple redirects
-    
-    console.log('Dashboard: Auth state check - user=', user ? 'exists' : 'null');
-    
-    if (!user) {
-      console.log('Dashboard: No user found, redirecting to login');
-      isRedirecting.current = true;
-      window.location.replace('/login/');
+    // If already redirecting, do nothing
+    if (isRedirecting) {
+      console.log('Dashboard: Already redirecting, skipping auth check');
+      return;
     }
-  }, [isInitialized, user]);
+    
+    // Check auth synchronously on mount
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
+      
+      console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
+      
+      if (!token || !userStr) {
+        console.log('Dashboard: No auth data, redirecting immediately');
+        isRedirecting = true; // Set global flag
+        window.location.replace('/login/');
+        return; // Stop further execution
+      }
+      
+      // User exists, initialize normally
+      console.log('Dashboard: Auth data found, initializing...');
+      checkAuth();
+      setIsInitialized(true);
+    }
+  }, []); // Run only once on mount
+
+  // If redirecting, don't render anything
+  if (isRedirecting) {
+    return null;
+  }
 
   useEffect(() => {
     console.log('Dashboard: Data load check - user=', user ? 'exists' : 'null', 'isInitialized=', isInitialized);
@@ -326,21 +332,14 @@ export default function DashboardPage() {
     window.location.replace('/login/');
   };
 
+  // Don't render anything until initialized
   if (!isInitialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Initializing...</p>
-      </div>
-    );
+    return null;
   }
 
+  // If initialized but no user, show nothing (redirect already happening)
   if (!user) {
-    // Will redirect in useEffect, show loading briefly
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Redirecting to login...</p>
-      </div>
-    );
+    return null;
   }
 
   return (
