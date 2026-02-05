@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { StatusBarManager } from "@/components/StatusBarManager";
 import { AppInitializer } from "@/components/AppInitializer";
 import "./globals.css";
@@ -45,7 +44,6 @@ export default function RootLayout({
         <AppInitializer />
         <StatusBarManager />
         {children}
-        <OfflineIndicator />
         {/* Fixed footer spacer for Android navigation bar - only visible on mobile */}
         <div 
           className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10 pointer-events-none md:hidden"
