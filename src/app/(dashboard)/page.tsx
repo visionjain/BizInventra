@@ -381,19 +381,19 @@ export default function DashboardPage() {
               Dashboard
             </button>
             <button
-              onClick={() => router.push('/items')}
+              onClick={() => window.location.href = '/items/'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Items
             </button>
             <button
-              onClick={() => router.push('/customers')}
+              onClick={() => window.location.href = '/customers/'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Customers
             </button>
             <button
-              onClick={() => router.push('/sales')}
+              onClick={() => window.location.href = '/sales/'}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Sales
