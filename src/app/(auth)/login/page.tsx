@@ -23,8 +23,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Use production API URL
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+      // Use local API in development, production API in Android/production
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? '' 
+        : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
+      
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

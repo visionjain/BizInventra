@@ -27,7 +27,6 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,29 +45,21 @@ export default function CustomersPage() {
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  // Check auth on mount
   useEffect(() => {
-    console.log('Customers: Checking auth...');
-    checkAuth();
     const token = localStorage.getItem('auth_token');
-    console.log('Customers: Token exists?', !!token);
-    
     if (!token) {
-      console.log('Customers: No token, redirecting');
-      setTimeout(() => {
-        window.location.href = '/login/';
-      }, 100);
-    } else {
-      setAuthChecked(true);
+      window.location.href = '/login/';
+      return;
     }
+    checkAuth();
   }, []);
 
   // Load customers when user is available
   useEffect(() => {
-    if (user && authChecked) {
+    if (user) {
       loadCustomers();
     }
-  }, [user, authChecked]);
+  }, [user]);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -415,23 +406,8 @@ export default function CustomersPage() {
 
   const totalOutstanding = customers.reduce((sum: number, customer: any) => sum + (customer.outstandingBalance || 0), 0);
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Redirecting to login...</p>
-      </div>
-    );
+    return null;
   }
 
   return (

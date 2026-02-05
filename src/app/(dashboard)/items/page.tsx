@@ -68,29 +68,21 @@ export default function ItemsPage() {
   const [stockStartDate, setStockStartDate] = useState(getDefaultStockDates().start);
   const [stockEndDate, setStockEndDate] = useState(getDefaultStockDates().end);
 
-  // Check auth on mount
   useEffect(() => {
-    console.log('Items: Checking auth...');
-    checkAuth();
     const token = localStorage.getItem('auth_token');
-    console.log('Items: Token exists?', !!token);
-    
     if (!token) {
-      console.log('Items: No token, redirecting');
-      setTimeout(() => {
-        window.location.href = '/login/';
-      }, 100);
-    } else {
-      setAuthChecked(true);
+      window.location.href = '/login/';
+      return;
     }
+   checkAuth();
   }, []);
 
   // Load items when user is available
   useEffect(() => {
-    if (user && authChecked) {
+    if (user) {
       loadItems();
     }
-  }, [user, authChecked]);
+  }, [user]);
 
   const loadItems = async () => {
     setLoading(true);
@@ -486,23 +478,8 @@ export default function ItemsPage() {
     setCurrentPage(1);
   }, [searchQuery]);
   
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Redirecting to login...</p>
-      </div>
-    );
+    return null;
   }
 
   return (

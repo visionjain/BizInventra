@@ -317,7 +317,11 @@ export default function DashboardPage() {
     setAuthLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+      // Use local API in development, production API in Android
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? '' 
+        : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
+      
       console.log('Attempting login to:', `${apiUrl}/api/auth/login`);
       
       const response = await fetch(`${apiUrl}/api/auth/login`, {
