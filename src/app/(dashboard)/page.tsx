@@ -99,12 +99,18 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
+    console.log('Dashboard mounted, checking auth...');
     const token = localStorage.getItem('auth_token');
+    console.log('Token:', token ? 'exists' : 'missing');
+    
     if (!token) {
+      console.log('No token, redirecting to login...');
       // Redirect to login page
       window.location.href = '/login/';
       return;
     }
+    
+    console.log('Token found, loading dashboard...');
     checkAuth();
     loadDashboardData();
   }, []);
