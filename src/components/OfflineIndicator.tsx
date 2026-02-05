@@ -18,13 +18,17 @@ export function OfflineIndicator() {
 
     // Check initial online status
     if (isNative) {
+      let networkListener: any;
+
       Network.getStatus().then(status => {
         setIsOnline(status.connected);
       });
 
       // Listen for network status changes (more reliable on native)
-      const networkListener = Network.addListener('networkStatusChange', status => {
+      Network.addListener('networkStatusChange', status => {
         setIsOnline(status.connected);
+      }).then(listener => {
+        networkListener = listener;
       });
 
       // Subscribe to sync status changes
@@ -41,7 +45,9 @@ export function OfflineIndicator() {
       const interval = setInterval(updatePendingCount, 5000);
 
       return () => {
-        networkListener.remove();
+        if (networkListener) {
+          networkListener.remove();
+        }
         clearInterval(interval);
       };
     } else {
@@ -73,7 +79,6 @@ export function OfflineIndicator() {
         clearInterval(interval);
       };
     }
-    };
   }, []);
 
   const updatePendingCount = async () => {
