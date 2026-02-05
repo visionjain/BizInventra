@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:android": "next build && npx cap sync android && npx cap open android",
-    "build:apk": "next build && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "build:android": "powershell -ExecutionPolicy Bypass -File ./build-android.ps1",
+    "build:apk": "powershell -ExecutionPolicy Bypass -File ./build-android.ps1 && cd android && ./gradlew assembleDebug",
     "export": "next build",
     "start": "next start",
     "lint": "eslint",

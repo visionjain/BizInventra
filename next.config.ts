@@ -1,12 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export', // Always use static export for now (mainly for Capacitor)
+  // Note: For Android builds, use build:android script which handles static export
+  // For Vercel production, this runs normally with API routes
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;
