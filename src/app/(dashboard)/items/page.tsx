@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useItemsStore } from '@/store/itemsStore';
@@ -33,6 +33,7 @@ export default function ItemsPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
+  const hasRedirected = useRef(false);
   const [customerPrices, setCustomerPrices] = useState<any[]>([]);
   const [customerPriceSearch, setCustomerPriceSearch] = useState('');
   const [newCustomerPrice, setNewCustomerPrice] = useState({
@@ -70,23 +71,21 @@ export default function ItemsPage() {
 
   // Check auth on mount
   useEffect(() => {
-    const performAuthCheck = async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (hasRedirected.current) return;
+    
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
       
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('auth_token');
-        const userStr = localStorage.getItem('current_user');
-        
-        if (!token || !userStr) {
-          window.location.replace('/login/');
-          return;
-        }
-        
-        checkAuth();
-        setIsCheckingAuth(false);
+      if (!token || !userStr) {
+        hasRedirected.current = true;
+        window.location.href = '/login/';
+        return;
       }
-    };
-    performAuthCheck();
+      
+      checkAuth();
+      setIsCheckingAuth(false);
+    }
   }, []);
 
   // Load items when user is available

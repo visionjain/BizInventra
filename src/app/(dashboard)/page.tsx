@@ -9,9 +9,6 @@ import { PullToRefresh } from '@/components/PullToRefresh';
 import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
-// Global flag to prevent rendering before redirect
-let isRedirecting = false;
-
 interface DashboardStats {
   weekly: {
     sales: number;
@@ -73,6 +70,7 @@ export default function DashboardPage() {
   const { user, logout, checkAuth } = useAuthStore();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(true);
+  const hasRedirected = useRef(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -103,42 +101,32 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // Show loading screen first, then check auth
-    const performAuthCheck = async () => {
-      // If already redirecting, do nothing
-      if (isRedirecting) {
+    // Only run once
+    if (hasRedirected.current) return;
+    
+    // Check auth immediately
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
+      
+      console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
+      
+      if (!token || !userStr) {
+        console.log('Dashboard: No auth data, redirecting to login');
+        hasRedirected.current = true;
+        window.location.href = '/login/';
         return;
       }
       
-      // Small delay to ensure loading screen shows
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Check auth synchronously
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('auth_token');
-        const userStr = localStorage.getItem('current_user');
-        
-        console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
-        
-        if (!token || !userStr) {
-          console.log('Dashboard: No auth data, redirecting to login');
-          isRedirecting = true;
-          window.location.replace('/login/');
-          return;
-        }
-        
-        // User exists, initialize normally
-        console.log('Dashboard: Auth data found, initializing...');
-        checkAuth();
-        setIsCheckingAuth(false);
-      }
-    };
-    
-    performAuthCheck();
-  }, []);
+      // User exists, initialize normally
+      console.log('Dashboard: Auth data found, initializing...');
+      checkAuth();
+      setIsCheckingAuth(false);
+    }
+  }, []); // Empty deps - run only on mount
 
   // If redirecting, don't render anything
-  if (isRedirecting) {
+  if (hasRedirected.current) {
     return null;
   }
   

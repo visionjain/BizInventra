@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useCustomersStore } from '@/store/customersStore';
@@ -28,6 +28,8 @@ export default function CustomersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const hasRedirected = useRef(false);
+  const hasRedirected = useRef(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,23 +50,21 @@ export default function CustomersPage() {
 
   // Check auth on mount
   useEffect(() => {
-    const performAuthCheck = async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (hasRedirected.current) return;
+    
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
       
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('auth_token');
-        const userStr = localStorage.getItem('current_user');
-        
-        if (!token || !userStr) {
-          window.location.replace('/login/');
-          return;
-        }
-        
-        checkAuth();
-        setIsCheckingAuth(false);
+      if (!token || !userStr) {
+        hasRedirected.current = true;
+        window.location.href = '/login/';
+        return;
       }
-    };
-    performAuthCheck();
+      
+      checkAuth();
+      setIsCheckingAuth(false);
+    }
   }, []);
 
   // Load customers when user is available

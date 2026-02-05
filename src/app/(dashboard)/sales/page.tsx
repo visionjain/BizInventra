@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useTransactionsStore } from '@/store/transactionsStore';
@@ -35,6 +35,7 @@ export default function SalesPage() {
   const [pendingChanges, setPendingChanges] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const hasRedirected = useRef(false);
   
   // Stats from server
   const [stats, setStats] = useState({
@@ -61,23 +62,21 @@ export default function SalesPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    const performAuthCheck = async () => {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (hasRedirected.current) return;
+    
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('auth_token');
+      const userStr = localStorage.getItem('current_user');
       
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('auth_token');
-        const userStr = localStorage.getItem('current_user');
-        
-        if (!token || !userStr) {
-          window.location.replace('/login/');
-          return;
-        }
-        
-        checkAuth();
-        setIsCheckingAuth(false);
+      if (!token || !userStr) {
+        hasRedirected.current = true;
+        window.location.href = '/login/';
+        return;
       }
-    };
-    performAuthCheck();
+      
+      checkAuth();
+      setIsCheckingAuth(false);
+    }
   }, []);
 
   useEffect(() => {
