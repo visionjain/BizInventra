@@ -27,6 +27,7 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -67,54 +68,59 @@ export default function CustomersPage() {
 
   const loadCustomers = async () => {
     setLoading(true);
+    
     try {
       const { Capacitor } = await import('@capacitor/core');
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
-      let isOnline = navigator.onLine;
+      // Step 1: Load from cache immediately (native only)
+      if (isNative && user) {
+        const { getCustomersOffline } = await import('@/lib/db/sqlite');
+        const offlineCustomers = await getCustomersOffline(user.id);
+        setCustomers(offlineCustomers);
+        console.log('Customers: Displayed cache immediately');
+      }
       
-      // Use Network plugin for reliable detection on native
+      // Remove loading spinner after cache display
+      setLoading(false);
+      
+      // Step 2: Check connectivity
+      let isOnline = navigator.onLine;
       if (isNative) {
         const { Network } = await import('@capacitor/network');
         const status = await Network.getStatus();
         isOnline = status.connected;
       }
       
-      // Try online first
+      // Step 3: Background sync if online
       if (isOnline) {
+        setIsUpdating(true);
+        
         try {
+          console.log('Customers: Background sync started');
           const response = await fetch('/api/customers');
+          
           if (response.ok) {
             const data = await response.json();
             setCustomers(data.customers || []);
             
-            // Save to cache for offline access
+            // Save to cache
             if (isNative && data.customers) {
               const { saveCustomersToCache } = await import('@/lib/db/sqlite');
               await saveCustomersToCache(user!.id, data.customers);
             }
-            return;
+            
+            console.log('Customers: Background sync completed');
           }
         } catch (error) {
-          console.log('Online fetch failed, falling back to offline:', error);
-          // Continue to offline mode below
+          console.log('Customers: Background sync failed', error);
+        } finally {
+          setIsUpdating(false);
         }
       }
-      
-      // Load from offline SQLite
-      if (isNative) {
-        const { getCustomersOffline } = await import('@/lib/db/sqlite');
-        const offlineCustomers = await getCustomersOffline(user!.id);
-        setCustomers(offlineCustomers);
-        console.log('Loaded customers from offline storage');
-      } else {
-        setCustomers([]);
-      }
     } catch (error) {
-      console.error('Failed to load customers:', error);
-      setCustomers([]);
-    } finally {
+      console.error('Customers: Failed to load data', error);
       setLoading(false);
     }
   };
@@ -426,7 +432,7 @@ export default function CustomersPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
-              <ConnectionStatus onRefresh={loadCustomers} />
+              <ConnectionStatus onRefresh={loadCustomers} isUpdating={isUpdating} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Customers</h2>
                 <p className="text-sm text-gray-600">Welcome, {user?.name}</p>

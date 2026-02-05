@@ -31,6 +31,7 @@ export default function ItemsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerPrices, setCustomerPrices] = useState<any[]>([]);
   const [customerPriceSearch, setCustomerPriceSearch] = useState('');
@@ -89,54 +90,59 @@ export default function ItemsPage() {
 
   const loadItems = async () => {
     setLoading(true);
+    
     try {
       const { Capacitor } = await import('@capacitor/core');
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
-      let isOnline = navigator.onLine;
+      // Step 1: Load from cache immediately (native only)
+      if (isNative && user) {
+        const { getItemsOffline } = await import('@/lib/db/sqlite');
+        const offlineItems = await getItemsOffline(user.id);
+        setItems(offlineItems);
+        console.log('Items: Displayed cache immediately');
+      }
       
-      // Use Network plugin for reliable detection on native
+      // Remove loading spinner after cache display
+      setLoading(false);
+      
+      // Step 2: Check connectivity
+      let isOnline = navigator.onLine;
       if (isNative) {
         const { Network } = await import('@capacitor/network');
         const status = await Network.getStatus();
         isOnline = status.connected;
       }
       
-      // Try online first
+      // Step 3: Background sync if online
       if (isOnline) {
+        setIsUpdating(true);
+        
         try {
+          console.log('Items: Background sync started');
           const response = await fetch('/api/items');
+          
           if (response.ok) {
             const data = await response.json();
             setItems(data.items || []);
             
-            // Save to cache for offline access
+            // Save to cache
             if (isNative && data.items) {
               const { saveItemsToCache } = await import('@/lib/db/sqlite');
               await saveItemsToCache(user!.id, data.items);
             }
-            return;
+            
+            console.log('Items: Background sync completed');
           }
         } catch (error) {
-          console.log('Online fetch failed, falling back to offline:', error);
-          // Continue to offline mode below
+          console.log('Items: Background sync failed', error);
+        } finally {
+          setIsUpdating(false);
         }
       }
-      
-      // Load from offline SQLite
-      if (isNative) {
-        const { getItemsOffline } = await import('@/lib/db/sqlite');
-        const offlineItems = await getItemsOffline(user!.id);
-        setItems(offlineItems);
-        console.log('Loaded items from offline storage');
-      } else {
-        setItems([]);
-      }
     } catch (error) {
-      console.error('Failed to load items:', error);
-      setItems([]);
-    } finally {
+      console.error('Items: Failed to load data', error);
       setLoading(false);
     }
   };
@@ -504,7 +510,7 @@ export default function ItemsPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
-              <ConnectionStatus onRefresh={loadItems} />
+              <ConnectionStatus onRefresh={loadItems} isUpdating={isUpdating} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Items</h2>
                 <p className="text-sm text-gray-600">{user?.companyName}</p>

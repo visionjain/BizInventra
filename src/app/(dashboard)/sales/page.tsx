@@ -34,6 +34,7 @@ export default function SalesPage() {
   const [loadedFromCache, setLoadedFromCache] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Stats from server
   const [stats, setStats] = useState({
@@ -145,100 +146,27 @@ export default function SalesPage() {
   };
 
   const loadData = async () => {
-    setLoading(true);
-    try {
-      const { Capacitor } = await import('@capacitor/core');
-      const platform = Capacitor.getPlatform();
-      const isNative = platform === 'android' || platform === 'ios';
-      
-      let isOnline = navigator.onLine;
-      
-      // Use Network plugin for more reliable detection on native
-      if (isNative) {
-        const { Network } = await import('@capacitor/network');
-        const status = await Network.getStatus();
-        isOnline = status.connected;
-      }
-      
-      // Try online first
-      if (isOnline) {
-        try {
-          // Build query with date range for accurate stats
-          const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
-          
-          // Load all data in parallel for faster loading
-          const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
-            fetch(txUrl),
-            fetch('/api/returns'),
-            fetch('/api/items'),
-            fetch('/api/customers')
-          ]);
-
-          if (txResponse.ok) {
-            const txData = await txResponse.json();
-            setTransactions(txData.transactions || []);
-            // Save server-calculated stats (accurate for ALL transactions in date range)
-            if (txData.stats) {
-              setStats(txData.stats);
-            }
-            
-            // Save to SQLite for offline access (native only)
-            if (isNative && txData.transactions) {
-              const { saveTransactionsToCache } = await import('@/lib/db/sqlite');
-              await saveTransactionsToCache(user!.id, txData.transactions);
-            }
-          }
-
-          if (returnsResponse.ok) {
-            const returnsData = await returnsResponse.json();
-            setReturns(returnsData.returns || []);
-          }
-
-          if (itemsResponse.ok) {
-            const itemsData = await itemsResponse.json();
-            setItems(itemsData.items || []);
-            
-            // Save items to SQLite for offline access (native only)
-            if (isNative && itemsData.items) {
-              const { saveItemsToCache } = await import('@/lib/db/sqlite');
-              await saveItemsToCache(user!.id, itemsData.items);
-            }
-          }
-
-          if (customersResponse.ok) {
-            const customersData = await customersResponse.json();
-            setCustomers(customersData.customers || []);
-            
-            // Save customers to SQLite for offline access (native only)
-            if (isNative && customersData.customers) {
-              const { saveCustomersToCache } = await import('@/lib/db/sqlite');
-              await saveCustomersToCache(user!.id, customersData.customers);
-            }
-          }
-          setLoadedFromCache(false);
-          return;
-        } catch (error) {
-          console.log('Online fetch failed, falling back to offline data:', error);
-          // Continue to offline mode below
-        }
-      }
-      
-      // Load from offline SQLite (when offline or online fetch failed)
-      if (isNative) {
+    const { Capacitor } = await import('@capacitor/core');
+    const platform = Capacitor.getPlatform();
+    const isNative = platform === 'android' || platform === 'ios';
+    
+    // Load from cache immediately for instant display (native only)
+    if (isNative && user) {
+      try {
         const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
         
         const [offlineTxs, offlineItems, offlineCustomers] = await Promise.all([
-          getTransactionsOffline(user!.id),
-          getItemsOffline(user!.id),
-          getCustomersOffline(user!.id)
+          getTransactionsOffline(user.id),
+          getItemsOffline(user.id),
+          getCustomersOffline(user.id)
         ]);
         
+        // Show cached data immediately
         setTransactions(offlineTxs);
         setItems(offlineItems);
         setCustomers(offlineCustomers);
-        setReturns([]); // Returns not supported offline yet
         
-        // Calculate stats from offline transactions
+        // Calculate stats from cached data
         const totalSales = offlineTxs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0);
         const totalReceived = offlineTxs.reduce((sum, tx) => sum + tx.paymentReceived, 0);
         const totalOutstanding = offlineTxs.reduce((sum, tx) => sum + tx.balanceAmount, 0);
@@ -254,16 +182,88 @@ export default function SalesPage() {
         });
         
         setLoadedFromCache(true);
-        console.log('Loaded sales data from offline storage');
-      } else {
-        // Web platform offline - show message
-        alert('No internet connection. Please connect to view data.');
+        setLoading(false); // Stop loading spinner
+      } catch (error) {
+        console.log('Failed to load cached data:', error);
       }
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setLoading(false);
     }
+    
+    // Now fetch fresh data in background
+    let isOnline = navigator.onLine;
+    
+    // Use Network plugin for more reliable detection on native
+    if (isNative) {
+      const { Network } = await import('@capacitor/network');
+      const status = await Network.getStatus();
+      isOnline = status.connected;
+    }
+    
+    // Try online fetch
+    if (isOnline) {
+      setIsUpdating(true); // Show "Updating..." status
+      try {
+        // Build query with date range for accurate stats
+        const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
+        
+        // Load all data in parallel for faster loading
+        const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
+          fetch(txUrl),
+          fetch('/api/returns'),
+          fetch('/api/items'),
+          fetch('/api/customers')
+        ]);
+
+        if (txResponse.ok) {
+          const txData = await txResponse.json();
+          setTransactions(txData.transactions || []);
+          // Save server-calculated stats (accurate for ALL transactions in date range)
+          if (txData.stats) {
+            setStats(txData.stats);
+          }
+          
+          // Save to SQLite for offline access (native only)
+          if (isNative && txData.transactions) {
+            const { saveTransactionsToCache } = await import('@/lib/db/sqlite');
+            await saveTransactionsToCache(user!.id, txData.transactions);
+          }
+        }
+
+        if (returnsResponse.ok) {
+          const returnsData = await returnsResponse.json();
+          setReturns(returnsData.returns || []);
+        }
+
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          setItems(itemsData.items || []);
+          
+          // Save items to SQLite for offline access (native only)
+          if (isNative && itemsData.items) {
+            const { saveItemsToCache } = await import('@/lib/db/sqlite');
+            await saveItemsToCache(user!.id, itemsData.items);
+          }
+        }
+
+        if (customersResponse.ok) {
+          const customersData = await customersResponse.json();
+          setCustomers(customersData.customers || []);
+          
+          // Save customers to SQLite for offline access (native only)
+          if (isNative && customersData.customers) {
+            const { saveCustomersToCache } = await import('@/lib/db/sqlite');
+            await saveCustomersToCache(user!.id, customersData.customers);
+          }
+        }
+        setLoadedFromCache(false);
+        setIsUpdating(false); // Done updating
+      } catch (error) {
+        console.log('Online fetch failed:', error);
+        setIsUpdating(false); // Done updating
+        // Already showing cached data, so don't show error
+      }
+    }
+    
+    setLoading(false);
   };
 
   const handleSubmit = async (formData: any) => {
@@ -516,7 +516,7 @@ export default function SalesPage() {
             </div>
             <div className="flex items-center gap-4">
               {/* Connection Status */}
-              <ConnectionStatus onRefresh={handleRefresh} />
+              <ConnectionStatus onRefresh={handleRefresh} isUpdating={isUpdating} />
               
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Sales</h2>

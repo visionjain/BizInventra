@@ -8,9 +8,10 @@ import { Capacitor } from '@capacitor/core';
 
 interface ConnectionStatusProps {
   onRefresh?: () => void;
+  isUpdating?: boolean;
 }
 
-export function ConnectionStatus({ onRefresh }: ConnectionStatusProps) {
+export function ConnectionStatus({ onRefresh, isUpdating = false }: ConnectionStatusProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -99,7 +100,15 @@ export function ConnectionStatus({ onRefresh }: ConnectionStatusProps) {
   };
 
   const getStatusConfig = () => {
-    if (isOnline && pendingChanges === 0) {
+    if (isUpdating) {
+      return {
+        color: 'blue',
+        dotClass: 'bg-blue-500',
+        textClass: 'text-blue-700',
+        bgClass: 'bg-blue-50',
+        text: 'Updating...'
+      };
+    } else if (isOnline && pendingChanges === 0) {
       return {
         color: 'green',
         dotClass: 'bg-green-500',

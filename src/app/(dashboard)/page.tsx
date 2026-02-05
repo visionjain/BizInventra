@@ -93,6 +93,7 @@ export default function DashboardPage() {
   });
   const [customStats, setCustomStats] = useState({ sales: 0, profit: 0, realizedProfit: 0, unrealizedProfit: 0, outstanding: 0, transactions: 0, itemsSold: 0, additionalCharges: 0, returns: 0, returnsProfit: 0 });
   const [profitPeriod, setProfitPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
+  const [isUpdating, setIsUpdating] = useState(false);
   const [chartData, setChartData] = useState<ChartData>({
     salesTrend: [],
     profitableProducts: [],
@@ -130,26 +131,101 @@ export default function DashboardPage() {
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
     setLoading(true);
+    
     try {
-      console.log('Dashboard: Fetching optimized stats...');
-      
       const { Capacitor } = await import('@capacitor/core');
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
-      let isOnline = navigator.onLine;
+      // Helper function for calculating stats from transactions
+      const calculatePeriodStats = (txs: any[]) => {
+        return {
+          sales: txs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0),
+          profit: txs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+          realizedProfit: txs.filter(tx => tx.balanceAmount === 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+          unrealizedProfit: txs.filter(tx => tx.balanceAmount > 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+          outstanding: txs.reduce((sum, tx) => sum + tx.balanceAmount, 0),
+          transactions: txs.length,
+          itemsSold: txs.reduce((sum, tx) => sum + (tx.items?.length || 0), 0),
+          additionalCharges: txs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0),
+          returns: 0,
+          returnsProfit: 0
+        };
+      };
       
-      // Use Network plugin for more reliable detection on native
+      // Step 1: Load from cache immediately (native only)
+      if (isNative && user) {
+        const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
+        
+        const [transactions, items, customers] = await Promise.all([
+          getTransactionsOffline(user.id),
+          getItemsOffline(user.id),
+          getCustomersOffline(user.id)
+        ]);
+        
+        // Calculate stats from cached data
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        
+        const weeklyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= weekAgo);
+        const monthlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= monthAgo);
+        const yearlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= yearAgo);
+        
+        setStats({
+          weekly: calculatePeriodStats(weeklyTxs),
+          monthly: calculatePeriodStats(monthlyTxs),
+          yearly: calculatePeriodStats(yearlyTxs),
+          today: { outstanding: transactions.reduce((sum, tx) => sum + tx.balanceAmount, 0) },
+          inventory: {
+            totalItems: items.length,
+            lowStock: items.filter(i => i.quantity < 10).length,
+            totalValue: items.reduce((sum, i) => sum + (i.quantity * i.buyPrice), 0)
+          },
+          customers: {
+            total: customers.length,
+            outstanding: customers.reduce((sum, c) => sum + (c.balance || 0), 0)
+          }
+        });
+        
+        // Calculate custom stats if needed
+        if (timePeriod === 'custom' && startDate && endDate) {
+          const customTxs = transactions.filter(tx => {
+            const txDate = new Date(tx.transactionDate);
+            return txDate >= new Date(startDate) && txDate <= new Date(endDate);
+          });
+          setCustomStats(calculatePeriodStats(customTxs));
+        }
+        
+        // Use empty chart data for cache
+        setChartData({
+          salesTrend: [],
+          profitableProducts: []
+        });
+        
+        console.log('Dashboard: Displayed cache immediately');
+      }
+      
+      // Remove loading spinner after cache display
+      setLoading(false);
+      
+      // Step 2: Check connectivity
+      let isOnline = navigator.onLine;
       if (isNative) {
         const { Network } = await import('@capacitor/network');
         const status = await Network.getStatus();
         isOnline = status.connected;
       }
       
-      // Try online first
+      // Step 3: Background sync if online
       if (isOnline) {
+        setIsUpdating(true);
+        
         try {
-          // If custom period and dates are set, fetch custom stats
+          console.log('Dashboard: Background sync started');
+          
+          // Fetch custom period stats if needed
           if (timePeriod === 'custom' && startDate && endDate) {
             const customResponse = await fetch(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
             if (customResponse.ok) {
@@ -196,116 +272,41 @@ export default function DashboardPage() {
             }
           }
           
-          // Always fetch predefined period stats
+          // Fetch predefined period stats
           const response = await fetch('/api/dashboard/stats');
-
-          if (!response.ok) {
-            throw new Error('Failed to fetch dashboard stats');
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Update stats from server
+            setStats({
+              weekly: data.stats.weekly,
+              monthly: data.stats.monthly,
+              yearly: data.stats.yearly,
+              today: data.stats.today,
+              inventory: data.stats.inventory,
+              customers: data.stats.customers
+            });
+            
+            // Fetch profitable products
+            const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
+            const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
+            
+            // Update chart data
+            setChartData({
+              salesTrend: data.chartData.salesTrend,
+              profitableProducts: profitData.products || [],
+            });
+            
+            console.log('Dashboard: Background sync completed');
           }
-
-          const data = await response.json();
-          
-          console.log('Dashboard: Stats received', data);
-
-          // Set stats from server aggregation
-          setStats({
-            weekly: data.stats.weekly,
-            monthly: data.stats.monthly,
-            yearly: data.stats.yearly,
-            today: data.stats.today,
-            inventory: data.stats.inventory,
-            customers: data.stats.customers
-          });
-
-          // Fetch profitable products based on profitPeriod
-          const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
-          const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
-
-          // Set chart data
-          setChartData({
-            salesTrend: data.chartData.salesTrend,
-            profitableProducts: profitData.products || [],
-          });
-
-          console.log('Dashboard: Stats loaded successfully');
-          return;
         } catch (error) {
-          console.log('Online fetch failed, falling back to offline data:', error);
-          // Continue to offline mode below
+          console.log('Dashboard: Background sync failed', error);
+        } finally {
+          setIsUpdating(false);
         }
-      }
-      
-      // Load from offline SQLite (when offline or online fetch failed)
-      if (isNative) {
-        const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
-        
-        const [transactions, items, customers] = await Promise.all([
-          getTransactionsOffline(user!.id),
-          getItemsOffline(user!.id),
-          getCustomersOffline(user!.id)
-        ]);
-        
-        // Calculate stats from offline data
-        const now = new Date();
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        
-        const calculatePeriodStats = (txs: any[]) => {
-          return {
-            sales: txs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0),
-            profit: txs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
-            realizedProfit: txs.filter(tx => tx.balanceAmount === 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
-            unrealizedProfit: txs.filter(tx => tx.balanceAmount > 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
-            outstanding: txs.reduce((sum, tx) => sum + tx.balanceAmount, 0),
-            transactions: txs.length,
-            itemsSold: txs.reduce((sum, tx) => sum + (tx.items?.length || 0), 0),
-            additionalCharges: txs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0),
-            returns: 0,
-            returnsProfit: 0
-          };
-        };
-        
-        const weeklyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= weekAgo);
-        const monthlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= monthAgo);
-        const yearlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= yearAgo);
-        
-        setStats({
-          weekly: calculatePeriodStats(weeklyTxs),
-          monthly: calculatePeriodStats(monthlyTxs),
-          yearly: calculatePeriodStats(yearlyTxs),
-          today: { outstanding: transactions.reduce((sum, tx) => sum + tx.balanceAmount, 0) },
-          inventory: {
-            totalItems: items.length,
-            lowStock: items.filter(i => i.quantity < 10).length,
-            totalValue: items.reduce((sum, i) => sum + (i.quantity * i.buyPrice), 0)
-          },
-          customers: {
-            total: customers.length,
-            outstanding: customers.reduce((sum, c) => sum + (c.balance || 0), 0)
-          }
-        });
-        
-        // Calculate custom stats if needed
-        if (timePeriod === 'custom' && startDate && endDate) {
-          const customTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.transactionDate);
-            return txDate >= new Date(startDate) && txDate <= new Date(endDate);
-          });
-          setCustomStats(calculatePeriodStats(customTxs));
-        }
-        
-        // For offline, use empty chart data
-        setChartData({
-          salesTrend: [],
-          profitableProducts: []
-        });
-        
-        console.log('Dashboard: Loaded from offline storage');
       }
     } catch (error) {
       console.error('Dashboard: Failed to load data', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -335,7 +336,7 @@ export default function DashboardPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
-              <ConnectionStatus onRefresh={loadDashboardData} />
+              <ConnectionStatus onRefresh={loadDashboardData} isUpdating={isUpdating} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
                 <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
