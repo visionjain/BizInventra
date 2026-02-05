@@ -130,6 +130,38 @@ export default function DashboardPage() {
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
+      // Helper function for HTTP requests
+      const apiRequest = async (url: string) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        console.log('API Request:', fullUrl, 'isNative:', isNative);
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          const response = await CapacitorHttp.get({
+            url: fullUrl,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+          console.log('Capacitor HTTP response:', response.status, response.data);
+          return { ok: response.status === 200, json: async () => response.data };
+        } else {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          return { ok: response.ok, json: async () => response.json() };
+        }
+      };
+      
       // Helper function for calculating stats from transactions
       const calculatePeriodStats = (txs: any[]) => {
         return {
@@ -220,7 +252,7 @@ export default function DashboardPage() {
           
           // Fetch custom period stats if needed
           if (timePeriod === 'custom' && startDate && endDate) {
-            const customResponse = await fetch(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
+            const customResponse = await apiRequest(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
             if (customResponse.ok) {
               const customData = await customResponse.json();
               const transactions = customData.transactions || [];
@@ -266,7 +298,7 @@ export default function DashboardPage() {
           }
           
           // Fetch predefined period stats
-          const response = await fetch('/api/dashboard/stats');
+          const response = await apiRequest('/api/dashboard/stats');
           if (response.ok) {
             const data = await response.json();
             
@@ -281,7 +313,7 @@ export default function DashboardPage() {
             });
             
             // Fetch profitable products
-            const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
+            const profitResponse = await apiRequest(`/api/dashboard/profitable-products?period=${profitPeriod}`);
             const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
             
             // Update chart data
