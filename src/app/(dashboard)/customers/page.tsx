@@ -7,6 +7,7 @@ import { useCustomersStore } from '@/store/customersStore';
 import { CustomerForm } from '@/components/customers/CustomerForm';
 import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { Customer } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, Phone, DollarSign, Eye, X } from 'lucide-react';
 
@@ -389,7 +390,8 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PullToRefresh onRefresh={loadCustomers}>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -1101,5 +1103,6 @@ export default function CustomersPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

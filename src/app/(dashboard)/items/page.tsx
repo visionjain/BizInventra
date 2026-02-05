@@ -9,6 +9,7 @@ import { ItemForm } from '@/components/items/ItemForm';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { Item, ItemUnit } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, PackagePlus, History, DollarSign, TrendingUp, Clock, Phone } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -468,7 +469,8 @@ export default function ItemsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PullToRefresh onRefresh={loadItems}>
+      <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
@@ -1201,5 +1203,6 @@ export default function ItemsPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }

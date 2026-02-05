@@ -10,6 +10,7 @@ import { TransactionForm } from '@/components/sales/TransactionForm';
 import { ReturnForm } from '@/components/returns/ReturnForm';
 import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { Plus, Search, LogOut, Trash2, DollarSign, ShoppingCart, TrendingUp, Eye, Edit2, Package, RotateCcw } from 'lucide-react';
 
 export default function SalesPage() {
@@ -503,7 +504,8 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -1083,5 +1085,6 @@ export default function SalesPage() {
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 }
