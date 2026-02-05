@@ -161,11 +161,79 @@ export default function SalesPage() {
       const { Capacitor } = await import('@capacitor/core');
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
-      const isOffline = !navigator.onLine;
       const isEditing = !!editingTransaction;
+      
+      let savedOnline = false;
 
-      // Try online save first
-      if (!isOffline) {
+      // For native apps, try online first but fall back to offline on any error
+      if (isNative) {
+        try {
+          const url = isEditing 
+            ? `/api/transactions/${editingTransaction._id || editingTransaction.id}`
+            : '/api/transactions';
+          const method = isEditing ? 'PUT' : 'POST';
+
+          const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (isEditing) {
+              // Update existing transaction in store
+              setTransactions(transactions.map((t: any) => 
+                (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
+                  ? data.transaction 
+                  : t
+              ));
+            } else {
+              addTransaction(data.transaction);
+            }
+            setShowForm(false);
+            setEditingTransaction(null);
+            // Reload to get updated balances and stock
+            loadData();
+            // Auto-sync after successful online save
+            const { syncService } = await import('@/lib/syncService');
+            await syncService.syncAll();
+            savedOnline = true;
+            return;
+          }
+        } catch (error) {
+          // Network error or other fetch failure - will fall through to offline save
+          console.log('Online save failed, falling back to offline:', error);
+        }
+
+        // If we reach here, online save failed - use offline save
+        if (!savedOnline) {
+          if (isEditing) {
+            const { updateTransactionOffline } = await import('@/lib/db/sqlite');
+            await updateTransactionOffline(user!.id, editingTransaction.id || editingTransaction._id, formData);
+            // Update local state
+            setTransactions(transactions.map((t: any) => 
+              (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
+                ? { ...formData, id: editingTransaction.id || editingTransaction._id }
+                : t
+            ));
+            setShowForm(false);
+            setEditingTransaction(null);
+            loadData();
+            alert('Transaction updated offline. Will sync when online.');
+          } else {
+            const { saveTransactionOffline } = await import('@/lib/db/sqlite');
+            const transactionId = await saveTransactionOffline(user!.id, formData);
+            const newTransaction = { ...formData, id: transactionId, _id: transactionId };
+            addTransaction(newTransaction);
+            setShowForm(false);
+            // Reload to get updated local data
+            loadData();
+            alert('Sale saved offline. Will sync when online.');
+          }
+        }
+      } else {
+        // Web platform - must be online
         const url = isEditing 
           ? `/api/transactions/${editingTransaction._id || editingTransaction.id}`
           : '/api/transactions';
@@ -177,56 +245,23 @@ export default function SalesPage() {
           body: JSON.stringify(formData),
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (isEditing) {
-            // Update existing transaction in store
-            setTransactions(transactions.map((t: any) => 
-              (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
-                ? data.transaction 
-                : t
-            ));
-          } else {
-            addTransaction(data.transaction);
-          }
-          setShowForm(false);
-          setEditingTransaction(null);
-          // Reload to get updated balances and stock
-          loadData();
-          // Auto-sync after successful online save
-          const { syncService } = await import('@/lib/syncService');
-          await syncService.syncAll();
-          return;
+        if (!response.ok) {
+          throw new Error('Failed to save transaction');
         }
-      }
 
-      // Fallback to offline save (native only)
-      if (isNative) {
+        const data = await response.json();
         if (isEditing) {
-          const { updateTransactionOffline } = await import('@/lib/db/sqlite');
-          await updateTransactionOffline(user!.id, editingTransaction.id || editingTransaction._id, formData);
-          // Update local state
           setTransactions(transactions.map((t: any) => 
             (t._id || t.id) === (editingTransaction._id || editingTransaction.id) 
-              ? { ...formData, id: editingTransaction.id || editingTransaction._id }
+              ? data.transaction 
               : t
           ));
-          setShowForm(false);
-          setEditingTransaction(null);
-          loadData();
-          alert('Transaction updated offline. Will sync when online.');
         } else {
-          const { saveTransactionOffline } = await import('@/lib/db/sqlite');
-          const transactionId = await saveTransactionOffline(user!.id, formData);
-          const newTransaction = { ...formData, id: transactionId, _id: transactionId };
-          addTransaction(newTransaction);
-          setShowForm(false);
-          // Reload to get updated local data
-          loadData();
-          alert('Sale saved offline. Will sync when online.');
+          addTransaction(data.transaction);
         }
-      } else if (isOffline) {
-        alert('Cannot save transaction offline on web. Please check your connection.');
+        setShowForm(false);
+        setEditingTransaction(null);
+        loadData();
       }
     } catch (error) {
       console.error('Failed to save transaction:', error);

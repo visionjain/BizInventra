@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, AlertCircle, Cloud } from 'lucide-react';
 import { syncService, SyncStatus } from '@/lib/syncService';
+import { Network } from '@capacitor/network';
+import { Capacitor } from '@capacitor/core';
 
 export function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(true);
@@ -12,32 +14,65 @@ export function OfflineIndicator() {
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    // Check online status
-    setIsOnline(navigator.onLine);
+    const isNative = Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios';
 
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    // Check initial online status
+    if (isNative) {
+      Network.getStatus().then(status => {
+        setIsOnline(status.connected);
+      });
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+      // Listen for network status changes (more reliable on native)
+      const networkListener = Network.addListener('networkStatusChange', status => {
+        setIsOnline(status.connected);
+      });
 
-    // Subscribe to sync status changes
-    syncService.onSyncStatusChange((status) => {
-      setSyncStatus(status);
-      if (status === 'synced') {
-        setLastSyncTime(new Date().toLocaleTimeString());
-        updatePendingCount();
-      }
-    });
+      // Subscribe to sync status changes
+      syncService.onSyncStatusChange((status) => {
+        setSyncStatus(status);
+        if (status === 'synced') {
+          setLastSyncTime(new Date().toLocaleTimeString());
+          updatePendingCount();
+        }
+      });
 
-    // Update pending count periodically
-    updatePendingCount();
-    const interval = setInterval(updatePendingCount, 5000);
+      // Update pending count periodically
+      updatePendingCount();
+      const interval = setInterval(updatePendingCount, 5000);
 
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      clearInterval(interval);
+      return () => {
+        networkListener.remove();
+        clearInterval(interval);
+      };
+    } else {
+      // Fallback to navigator.onLine for web
+      setIsOnline(navigator.onLine);
+
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      // Subscribe to sync status changes
+      syncService.onSyncStatusChange((status) => {
+        setSyncStatus(status);
+        if (status === 'synced') {
+          setLastSyncTime(new Date().toLocaleTimeString());
+          updatePendingCount();
+        }
+      });
+
+      // Update pending count periodically
+      updatePendingCount();
+      const interval = setInterval(updatePendingCount, 5000);
+
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+        clearInterval(interval);
+      };
+    }
     };
   }, []);
 
