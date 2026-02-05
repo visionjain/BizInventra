@@ -26,9 +26,7 @@ export default function CustomersPage() {
   const [paymentsToShow, setPaymentsToShow] = useState(5);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const hasRedirected = useRef(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,29 +47,19 @@ export default function CustomersPage() {
 
   // Check auth on mount
   useEffect(() => {
-    if (hasRedirected.current) return;
-    
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
-      
-      if (!token || !userStr) {
-        hasRedirected.current = true;
-        window.location.href = '/login/';
-        return;
-      }
-      
-      checkAuth();
-      setIsCheckingAuth(false);
+    checkAuth();
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login/';
     }
   }, []);
 
   // Load customers when user is available
   useEffect(() => {
-    if (user && !isCheckingAuth) {
+    if (user) {
       loadCustomers();
     }
-  }, [user, isCheckingAuth]);
+  }, [user]);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -418,19 +406,6 @@ export default function CustomersPage() {
 
   const totalOutstanding = customers.reduce((sum: number, customer: any) => sum + (customer.outstandingBalance || 0), 0);
 
-  // Show loading while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if no user (redirect will happen)
   if (!user) {
     return null;
   }

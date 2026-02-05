@@ -30,10 +30,8 @@ export default function ItemsPage() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
-  const hasRedirected = useRef(false);
   const [customerPrices, setCustomerPrices] = useState<any[]>([]);
   const [customerPriceSearch, setCustomerPriceSearch] = useState('');
   const [newCustomerPrice, setNewCustomerPrice] = useState({
@@ -71,29 +69,19 @@ export default function ItemsPage() {
 
   // Check auth on mount
   useEffect(() => {
-    if (hasRedirected.current) return;
-    
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
-      
-      if (!token || !userStr) {
-        hasRedirected.current = true;
-        window.location.href = '/login/';
-        return;
-      }
-      
-      checkAuth();
-      setIsCheckingAuth(false);
+    checkAuth();
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login/';
     }
   }, []);
 
   // Load items when user is available
   useEffect(() => {
-    if (user && !isCheckingAuth) {
+    if (user) {
       loadItems();
     }
-  }, [user, isCheckingAuth]);
+  }, [user]);
 
   const loadItems = async () => {
     setLoading(true);
@@ -489,19 +477,6 @@ export default function ItemsPage() {
     setCurrentPage(1);
   }, [searchQuery]);
   
-  // Show loading while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if no user (redirect will happen)
   if (!user) {
     return null;
   }

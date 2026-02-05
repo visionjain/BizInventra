@@ -29,13 +29,11 @@ export default function SalesPage() {
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const hasRedirected = useRef(false);
   
   // Stats from server
   const [stats, setStats] = useState({
@@ -62,29 +60,19 @@ export default function SalesPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    if (hasRedirected.current) return;
-    
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
-      
-      if (!token || !userStr) {
-        hasRedirected.current = true;
-        window.location.href = '/login/';
-        return;
-      }
-      
-      checkAuth();
-      setIsCheckingAuth(false);
+    checkAuth();
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login/';
     }
   }, []);
 
   useEffect(() => {
-    if (user && !isCheckingAuth) {
+    if (user) {
       loadData();
       checkPendingChanges();
     }
-  }, [user, isCheckingAuth, startDate, endDate]); // Reload when date range changes
+  }, [user, startDate, endDate]);
 
   // Track online status
   useEffect(() => {
@@ -503,19 +491,6 @@ export default function SalesPage() {
     : 0;
   const unrealizedProfit = totalProfitLoss - realizedProfit;
 
-  // Show loading screen while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if no user (redirect will happen)
   if (!user) {
     return null;
   }

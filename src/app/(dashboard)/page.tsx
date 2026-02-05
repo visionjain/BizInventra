@@ -68,9 +68,7 @@ interface ChartData {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, logout, checkAuth } = useAuthStore();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(true);
-  const hasRedirected = useRef(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -101,54 +99,21 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // Only run once
-    if (hasRedirected.current) return;
+    // Simple: check auth once on mount
+    checkAuth();
     
-    // Check auth immediately
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
-      
-      console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
-      
-      if (!token || !userStr) {
-        console.log('Dashboard: No auth data, redirecting to login');
-        hasRedirected.current = true;
-        window.location.href = '/login/';
-        return;
-      }
-      
-      // User exists, initialize normally
-      console.log('Dashboard: Auth data found, initializing...');
-      checkAuth();
-      setIsCheckingAuth(false);
+    // If no user after check, redirect
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      window.location.href = '/login/';
     }
-  }, []); // Empty deps - run only on mount
-
-  // If redirecting, don't render anything
-  if (hasRedirected.current) {
-    return null;
-  }
-  
-  // Show loading screen while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   useEffect(() => {
-    console.log('Dashboard: Data load check - user=', user ? 'exists' : 'null', 'isCheckingAuth=', isCheckingAuth);
-    if (user && !isCheckingAuth) {
-      console.log('Dashboard: Loading dashboard data...');
+    if (user) {
       loadDashboardData();
     }
-  }, [user, isCheckingAuth, startDate, endDate, timePeriod, profitPeriod]);
+  }, [user, startDate, endDate, timePeriod, profitPeriod]);
 
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
@@ -335,11 +300,10 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     logout();
-    // Use window.location.replace for Capacitor compatibility
-    window.location.replace('/login/');
+    window.location.href = '/login/';
   };
 
-  // If no user after auth check, don't render (redirect will happen)
+  // Simple check: if no user, don't render
   if (!user) {
     return null;
   }
