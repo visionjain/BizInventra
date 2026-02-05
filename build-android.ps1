@@ -6,6 +6,10 @@ Write-Host "Building for Android..." -ForegroundColor Cyan
 Write-Host "Temporarily moving API folder..." -ForegroundColor Yellow
 Move-Item -Path "src\app\api" -Destination "api-backup" -Force -ErrorAction SilentlyContinue
 
+# Backup production config
+Write-Host "Backing up production config..." -ForegroundColor Yellow
+Copy-Item -Path "next.config.ts" -Destination "next.config.prod.backup" -Force
+
 # Use Android-specific config
 Write-Host "Using Android Next.js config..." -ForegroundColor Yellow
 Copy-Item -Path "next.config.android.ts" -Destination "next.config.ts" -Force
@@ -22,9 +26,9 @@ npx cap sync android
 Write-Host "Restoring API folder..." -ForegroundColor Yellow
 Move-Item -Path "api-backup" -Destination "src\app\api" -Force -ErrorAction SilentlyContinue
 
-# Restore original config
-Write-Host "Restoring original Next.js config..." -ForegroundColor Yellow
-git checkout next.config.ts
+# Restore production config
+Write-Host "Restoring production config..." -ForegroundColor Yellow
+Move-Item -Path "next.config.prod.backup" -Destination "next.config.ts" -Force
 
 Write-Host "Android build complete!" -ForegroundColor Green
 Write-Host "Run 'npx cap open android' to open in Android Studio" -ForegroundColor Cyan
