@@ -27,6 +27,7 @@ export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,19 +48,27 @@ export default function CustomersPage() {
 
   // Check auth on mount
   useEffect(() => {
+    console.log('Customers: Checking auth...');
     checkAuth();
     const token = localStorage.getItem('auth_token');
+    console.log('Customers: Token exists?', !!token);
+    
     if (!token) {
-      window.location.href = '/login/';
+      console.log('Customers: No token, redirecting');
+      setTimeout(() => {
+        window.location.href = '/login/';
+      }, 100);
+    } else {
+      setAuthChecked(true);
     }
   }, []);
 
   // Load customers when user is available
   useEffect(() => {
-    if (user) {
+    if (user && authChecked) {
       loadCustomers();
     }
-  }, [user]);
+  }, [user, authChecked]);
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -406,8 +415,23 @@ export default function CustomersPage() {
 
   const totalOutstanding = customers.reduce((sum: number, customer: any) => sum + (customer.outstandingBalance || 0), 0);
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Redirecting to login...</p>
+      </div>
+    );
   }
 
   return (

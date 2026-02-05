@@ -32,6 +32,7 @@ export default function ItemsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [authChecked, setAuthChecked] = useState(false);
   const [customerPrices, setCustomerPrices] = useState<any[]>([]);
   const [customerPriceSearch, setCustomerPriceSearch] = useState('');
   const [newCustomerPrice, setNewCustomerPrice] = useState({
@@ -69,19 +70,27 @@ export default function ItemsPage() {
 
   // Check auth on mount
   useEffect(() => {
+    console.log('Items: Checking auth...');
     checkAuth();
     const token = localStorage.getItem('auth_token');
+    console.log('Items: Token exists?', !!token);
+    
     if (!token) {
-      window.location.href = '/login/';
+      console.log('Items: No token, redirecting');
+      setTimeout(() => {
+        window.location.href = '/login/';
+      }, 100);
+    } else {
+      setAuthChecked(true);
     }
   }, []);
 
   // Load items when user is available
   useEffect(() => {
-    if (user) {
+    if (user && authChecked) {
       loadItems();
     }
-  }, [user]);
+  }, [user, authChecked]);
 
   const loadItems = async () => {
     setLoading(true);
@@ -477,8 +486,23 @@ export default function ItemsPage() {
     setCurrentPage(1);
   }, [searchQuery]);
   
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Redirecting to login...</p>
+      </div>
+    );
   }
 
   return (

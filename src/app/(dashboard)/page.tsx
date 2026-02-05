@@ -69,6 +69,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, logout, checkAuth } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -99,21 +100,32 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // Simple: check auth once on mount
+    // Check auth on mount
+    console.log('Dashboard: Checking auth...');
     checkAuth();
     
-    // If no user after check, redirect
+    // Check if token exists
     const token = localStorage.getItem('auth_token');
+    console.log('Dashboard: Token exists?', !!token);
+    
     if (!token) {
-      window.location.href = '/login/';
+      console.log('Dashboard: No token, redirecting to login');
+      // Add small delay to ensure component is mounted before redirect
+      setTimeout(() => {
+        window.location.href = '/login/';
+      }, 100);
+    } else {
+      console.log('Dashboard: Token found, marking auth checked');
+      setAuthChecked(true);
     }
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (user && authChecked) {
+      console.log('Dashboard: User exists, loading data');
       loadDashboardData();
     }
-  }, [user, startDate, endDate, timePeriod, profitPeriod]);
+  }, [user, authChecked, startDate, endDate, timePeriod, profitPeriod]);
 
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
@@ -303,9 +315,27 @@ export default function DashboardPage() {
     window.location.href = '/login/';
   };
 
-  // Simple check: if no user, don't render
+  // Show loading while checking auth
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If auth checked but no user, show loading (redirect happening)
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

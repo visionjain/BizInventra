@@ -34,6 +34,7 @@ export default function SalesPage() {
   const [pendingChanges, setPendingChanges] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   
   // Stats from server
   const [stats, setStats] = useState({
@@ -60,19 +61,27 @@ export default function SalesPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
+    console.log('Sales: Checking auth...');
     checkAuth();
     const token = localStorage.getItem('auth_token');
+    console.log('Sales: Token exists?', !!token);
+    
     if (!token) {
-      window.location.href = '/login/';
+      console.log('Sales: No token, redirecting');
+      setTimeout(() => {
+        window.location.href = '/login/';
+      }, 100);
+    } else {
+      setAuthChecked(true);
     }
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (user && authChecked) {
       loadData();
       checkPendingChanges();
     }
-  }, [user, startDate, endDate]);
+  }, [user, authChecked, startDate, endDate]);
 
   // Track online status
   useEffect(() => {
@@ -491,8 +500,23 @@ export default function SalesPage() {
     : 0;
   const unrealizedProfit = totalProfitLoss - realizedProfit;
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-600">Redirecting to login...</p>
+      </div>
+    );
   }
 
   return (
