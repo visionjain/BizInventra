@@ -4,12 +4,10 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import Link from 'next/link';
 
 interface DashboardStats {
   weekly: {
@@ -69,13 +67,8 @@ interface ChartData {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, logout, checkAuth, setUser, setLoading: setAuthLoading } = useAuthStore();
+  const { user, logout, checkAuth } = useAuthStore();
   const [loading, setLoading] = useState(true);
-  const [showLogin, setShowLogin] = useState(false);
-  const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -108,8 +101,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
-      setShowLogin(true);
-      setLoading(false);
+      // Redirect to login page
+      window.location.href = '/login/';
       return;
     }
     checkAuth();
@@ -309,112 +302,6 @@ export default function DashboardPage() {
     logout();
     window.location.href = '/login/';
   };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsLoggingIn(true);
-    setAuthLoading(true);
-
-    try {
-      // Use local API in development, production API in Android
-      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-        ? '' 
-        : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
-      
-      console.log('Attempting login to:', `${apiUrl}/api/auth/login`);
-      
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ emailOrPhone, password }),
-        mode: 'cors'
-      });
-
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
-
-      if (data.success) {
-        setUser(data.user, data.token);
-        setShowLogin(false);
-        checkAuth();
-        loadDashboardData();
-      } else {
-        setLoginError(data.error || 'Login failed');
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      console.error('Error details:', err.message, err.stack);
-      setLoginError(`Login failed: ${err.message}. Please check your connection.`);
-    } finally {
-      setIsLoggingIn(false);
-      setAuthLoading(false);
-    }
-  };
-
-  if (showLogin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center flex flex-col items-center">
-            <img src="/logo.png" alt="Bizinventra" className="h-20 w-20 mb-4" />
-            <img src="/titlelogo.png" alt="Bizinventra" className="h-12 mb-4" />
-            <p className="mt-2 text-sm text-gray-600">Sign in to your account</p>
-            <p className="mt-1 text-xs text-gray-500">API: {process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app'}</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="mt-8 space-y-6">
-            <div className="space-y-4">
-              <Input
-                label="Email or Phone Number"
-                type="text"
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
-                placeholder="Enter email or phone"
-                required
-                autoComplete="username"
-              />
-
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-                autoComplete="current-password"
-              />
-            </div>
-
-            {loginError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {loginError}
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full"
-              isLoading={isLoggingIn}
-            >
-              Sign In
-            </Button>
-
-            <div className="text-center text-sm">
-              <span className="text-gray-600">Don't have an account? </span>
-              <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                Register
-              </Link>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   if (!user) {
     return null;
