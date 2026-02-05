@@ -71,7 +71,7 @@ interface ChartData {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, logout, checkAuth } = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(true);
   
   // Get today's date
@@ -103,45 +103,64 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // If already redirecting, do nothing
-    if (isRedirecting) {
-      console.log('Dashboard: Already redirecting, skipping auth check');
-      return;
-    }
-    
-    // Check auth synchronously on mount
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
-      
-      console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
-      
-      if (!token || !userStr) {
-        console.log('Dashboard: No auth data, redirecting immediately');
-        isRedirecting = true; // Set global flag
-        window.location.replace('/login/');
-        return; // Stop further execution
+    // Show loading screen first, then check auth
+    const performAuthCheck = async () => {
+      // If already redirecting, do nothing
+      if (isRedirecting) {
+        return;
       }
       
-      // User exists, initialize normally
-      console.log('Dashboard: Auth data found, initializing...');
-      checkAuth();
-      setIsInitialized(true);
-    }
-  }, []); // Run only once on mount
+      // Small delay to ensure loading screen shows
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check auth synchronously
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth_token');
+        const userStr = localStorage.getItem('current_user');
+        
+        console.log('Dashboard mount: token=', token ? 'exists' : 'missing', 'user=', userStr ? 'exists' : 'missing');
+        
+        if (!token || !userStr) {
+          console.log('Dashboard: No auth data, redirecting to login');
+          isRedirecting = true;
+          window.location.replace('/login/');
+          return;
+        }
+        
+        // User exists, initialize normally
+        console.log('Dashboard: Auth data found, initializing...');
+        checkAuth();
+        setIsCheckingAuth(false);
+      }
+    };
+    
+    performAuthCheck();
+  }, []);
 
   // If redirecting, don't render anything
   if (isRedirecting) {
     return null;
   }
+  
+  // Show loading screen while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
-    console.log('Dashboard: Data load check - user=', user ? 'exists' : 'null', 'isInitialized=', isInitialized);
-    if (user && isInitialized) {
+    console.log('Dashboard: Data load check - user=', user ? 'exists' : 'null', 'isCheckingAuth=', isCheckingAuth);
+    if (user && !isCheckingAuth) {
       console.log('Dashboard: Loading dashboard data...');
       loadDashboardData();
     }
-  }, [user, isInitialized, startDate, endDate, timePeriod, profitPeriod]);
+  }, [user, isCheckingAuth, startDate, endDate, timePeriod, profitPeriod]);
 
   const loadDashboardData = async () => {
     console.log('Dashboard: loadDashboardData started');
@@ -332,12 +351,7 @@ export default function DashboardPage() {
     window.location.replace('/login/');
   };
 
-  // Don't render anything until initialized
-  if (!isInitialized) {
-    return null;
-  }
-
-  // If initialized but no user, show nothing (redirect already happening)
+  // If no user after auth check, don't render (redirect will happen)
   if (!user) {
     return null;
   }

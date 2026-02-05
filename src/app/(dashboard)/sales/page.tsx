@@ -29,7 +29,7 @@ export default function SalesPage() {
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
@@ -61,27 +61,31 @@ export default function SalesPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    // Check localStorage directly for faster auth check
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
+    const performAuthCheck = async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      if (!token || !userStr) {
-        window.location.replace('/login/');
-        return;
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth_token');
+        const userStr = localStorage.getItem('current_user');
+        
+        if (!token || !userStr) {
+          window.location.replace('/login/');
+          return;
+        }
+        
+        checkAuth();
+        setIsCheckingAuth(false);
       }
-      
-      checkAuth();
-      setIsInitialized(true);
-    }
+    };
+    performAuthCheck();
   }, []);
 
   useEffect(() => {
-    if (user && isInitialized) {
+    if (user && !isCheckingAuth) {
       loadData();
       checkPendingChanges();
     }
-  }, [user, isInitialized, startDate, endDate]); // Reload when date range changes
+  }, [user, isCheckingAuth, startDate, endDate]); // Reload when date range changes
 
   // Track online status
   useEffect(() => {
@@ -500,12 +504,21 @@ export default function SalesPage() {
     : 0;
   const unrealizedProfit = totalProfitLoss - realizedProfit;
 
-  if (!isInitialized || (isInitialized && !user)) {
+  // Show loading screen while checking auth
+  if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
+  }
+
+  // Don't render if no user (redirect will happen)
+  if (!user) {
+    return null;
   }
 
   return (

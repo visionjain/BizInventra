@@ -70,27 +70,31 @@ export default function ItemsPage() {
 
   // Check auth on mount
   useEffect(() => {
-    // Check localStorage directly for faster auth check
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      const userStr = localStorage.getItem('current_user');
+    const performAuthCheck = async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      if (!token || !userStr) {
-        window.location.replace('/login/');
-        return;
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('auth_token');
+        const userStr = localStorage.getItem('current_user');
+        
+        if (!token || !userStr) {
+          window.location.replace('/login/');
+          return;
+        }
+        
+        checkAuth();
+        setIsCheckingAuth(false);
       }
-      
-      checkAuth();
-      setIsInitialized(true);
-    }
+    };
+    performAuthCheck();
   }, []);
 
   // Load items when user is available
   useEffect(() => {
-    if (user && isInitialized) {
+    if (user && !isCheckingAuth) {
       loadItems();
     }
-  }, [user, isInitialized]);
+  }, [user, isCheckingAuth]);
 
   const loadItems = async () => {
     setLoading(true);
@@ -485,22 +489,22 @@ export default function ItemsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
-  // Show loading while initializing
-  if (!isInitialized) {
+  
+  // Show loading while checking auth
+  if (isCheckingAuth) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // Show loading if redirecting
+  // Don't render if no user (redirect will happen)
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Redirecting to login...</p>
-      </div>
-    );
+    return null;
   }
 
   return (
