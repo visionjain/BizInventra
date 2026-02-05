@@ -118,11 +118,11 @@ export function OfflineIndicator() {
   };
 
   const getStatusText = () => {
-    if (!isOnline) return 'Offline';
+    if (!isOnline) return 'Offline - Using Cached Data';
     if (syncStatus === 'syncing' || syncing) return 'Syncing...';
     if (syncStatus === 'error') return 'Sync Error';
-    if (pendingChanges > 0) return `${pendingChanges} pending`;
-    return 'Synced';
+    if (pendingChanges > 0) return `${pendingChanges} Unsynced Changes`;
+    return 'All Data Synced';
   };
 
   const getStatusColor = () => {

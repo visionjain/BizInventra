@@ -465,6 +465,192 @@ export async function getTransactionsOffline(userId: string): Promise<any[]> {
   }));
 }
 
+// CACHE OPERATIONS - Save API data to local storage for offline access
+export async function saveTransactionsToCache(userId: string, transactions: any[]): Promise<void> {
+  for (const tx of transactions) {
+    const txId = tx._id || tx.id;
+    
+    // Check if transaction exists
+    const existing = await executeQuery(
+      'SELECT id FROM transactions WHERE id = ? AND user_id = ?',
+      [txId, userId]
+    );
+    
+    if (existing.length > 0) {
+      // Update existing
+      await executeUpdate(
+        `UPDATE transactions SET 
+          customer_id = ?,
+          customer_name = ?,
+          total_amount = ?,
+          payment_received = ?,
+          balance_amount = ?,
+          total_profit = ?,
+          payment_method = ?,
+          notes = ?,
+          items_json = ?,
+          additional_charges_json = ?,
+          total_additional_charges = ?,
+          transaction_date = ?,
+          synced = 1
+        WHERE id = ? AND user_id = ?`,
+        [
+          tx.customerId,
+          tx.customerName,
+          tx.totalAmount,
+          tx.paymentReceived,
+          tx.balanceAmount,
+          tx.totalProfit || 0,
+          tx.paymentMethod || '',
+          tx.notes || '',
+          JSON.stringify(tx.items || []),
+          JSON.stringify(tx.additionalCharges || []),
+          tx.totalAdditionalCharges || 0,
+          tx.transactionDate || new Date().toISOString(),
+          txId,
+          userId
+        ]
+      );
+    } else {
+      // Insert new
+      await executeUpdate(
+        `INSERT INTO transactions (
+          id, user_id, customer_id, customer_name, total_amount,
+          payment_received, balance_amount, total_profit, payment_method,
+          notes, items_json, additional_charges_json, total_additional_charges,
+          transaction_date, synced, is_deleted, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
+        [
+          txId,
+          userId,
+          tx.customerId,
+          tx.customerName,
+          tx.totalAmount,
+          tx.paymentReceived,
+          tx.balanceAmount,
+          tx.totalProfit || 0,
+          tx.paymentMethod || '',
+          tx.notes || '',
+          JSON.stringify(tx.items || []),
+          JSON.stringify(tx.additionalCharges || []),
+          tx.totalAdditionalCharges || 0,
+          tx.transactionDate || new Date().toISOString(),
+          new Date().toISOString()
+        ]
+      );
+    }
+  }
+  await saveDatabase();
+}
+
+export async function saveItemsToCache(userId: string, items: any[]): Promise<void> {
+  for (const item of items) {
+    const itemId = item._id || item.id;
+    
+    // Check if item exists
+    const existing = await executeQuery(
+      'SELECT id FROM items WHERE id = ? AND user_id = ?',
+      [itemId, userId]
+    );
+    
+    if (existing.length > 0) {
+      // Update existing
+      await executeUpdate(
+        `UPDATE items SET 
+          item_name = ?,
+          buy_price = ?,
+          sell_price = ?,
+          quantity = ?,
+          category = ?,
+          synced = 1
+        WHERE id = ? AND user_id = ?`,
+        [
+          item.itemName,
+          item.buyPrice,
+          item.sellPrice,
+          item.quantity,
+          item.category || '',
+          itemId,
+          userId
+        ]
+      );
+    } else {
+      // Insert new
+      await executeUpdate(
+        `INSERT INTO items (
+          id, user_id, item_name, buy_price, sell_price, quantity, category,
+          synced, is_deleted, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
+        [
+          itemId,
+          userId,
+          item.itemName,
+          item.buyPrice,
+          item.sellPrice,
+          item.quantity,
+          item.category || '',
+          new Date().toISOString()
+        ]
+      );
+    }
+  }
+  await saveDatabase();
+}
+
+export async function saveCustomersToCache(userId: string, customers: any[]): Promise<void> {
+  for (const customer of customers) {
+    const customerId = customer._id || customer.id;
+    
+    // Check if customer exists
+    const existing = await executeQuery(
+      'SELECT id FROM customers WHERE id = ? AND user_id = ?',
+      [customerId, userId]
+    );
+    
+    if (existing.length > 0) {
+      // Update existing
+      await executeUpdate(
+        `UPDATE customers SET 
+          customer_name = ?,
+          phone = ?,
+          email = ?,
+          address = ?,
+          balance = ?,
+          synced = 1
+        WHERE id = ? AND user_id = ?`,
+        [
+          customer.customerName,
+          customer.phone || '',
+          customer.email || '',
+          customer.address || '',
+          customer.balance || 0,
+          customerId,
+          userId
+        ]
+      );
+    } else {
+      // Insert new
+      await executeUpdate(
+        `INSERT INTO customers (
+          id, user_id, customer_name, phone, email, address, balance,
+          synced, is_deleted, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?)`,
+        [
+          customerId,
+          userId,
+          customer.customerName,
+          customer.phone || '',
+          customer.email || '',
+          customer.address || '',
+          customer.balance || 0,
+          new Date().toISOString()
+        ]
+      );
+    }
+  }
+  await saveDatabase();
+}
+
 // SYNC OPERATIONS
 export async function getPendingSyncItems(userId: string): Promise<any[]> {
   return await executeQuery(

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { StatusBarManager } from "@/components/StatusBarManager";
+import { AppInitializer } from "@/components/AppInitializer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <AppInitializer />
         <StatusBarManager />
         {children}
         <OfflineIndicator />

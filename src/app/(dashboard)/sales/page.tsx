@@ -28,6 +28,10 @@ export default function SalesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [loadedFromCache, setLoadedFromCache] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Stats from server
   const [stats, setStats] = useState({
@@ -67,57 +71,158 @@ export default function SalesPage() {
   useEffect(() => {
     if (user && isInitialized) {
       loadData();
+      checkPendingChanges();
     }
   }, [user, isInitialized, startDate, endDate]); // Reload when date range changes
+
+  // Track online status
+  useEffect(() => {
+    const checkOnlineStatus = async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      
+      if (platform === 'android' || platform === 'ios') {
+        const { Network } = await import('@capacitor/network');
+        const status = await Network.getStatus();
+        setIsOnline(status.connected);
+        
+        // Listen for status changes
+        Network.addListener('networkStatusChange', (status) => {
+          setIsOnline(status.connected);
+          if (status.connected) {
+            // Auto-sync when back online
+            handleRefresh();
+          }
+        });
+      } else {
+        setIsOnline(navigator.onLine);
+        window.addEventListener('online', () => setIsOnline(true));
+        window.addEventListener('offline', () => setIsOnline(false));
+      }
+    };
+    
+    checkOnlineStatus();
+    
+    // Check pending changes periodically
+    const interval = setInterval(checkPendingChanges, 10000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const checkPendingChanges = async () => {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      
+      if (platform === 'android' || platform === 'ios') {
+        const { syncService } = await import('@/lib/syncService');
+        const count = await syncService.getPendingChangesCount();
+        setPendingChanges(count);
+      }
+    } catch (error) {
+      console.error('Failed to check pending changes:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Try to sync first if online
+      if (isOnline) {
+        const { syncService } = await import('@/lib/syncService');
+        await syncService.syncAll();
+      }
+      // Reload data
+      await loadData();
+      await checkPendingChanges();
+    } catch (error) {
+      console.error('Refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const isOffline = !navigator.onLine;
-      
-      // Try online first
-      if (!isOffline) {
-        // Build query with date range for accurate stats
-        const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
-        
-        // Load all data in parallel for faster loading
-        const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
-          fetch(txUrl),
-          fetch('/api/returns'),
-          fetch('/api/items'),
-          fetch('/api/customers')
-        ]);
-
-        if (txResponse.ok) {
-          const txData = await txResponse.json();
-          setTransactions(txData.transactions || []);
-          // Save server-calculated stats (accurate for ALL transactions in date range)
-          if (txData.stats) {
-            setStats(txData.stats);
-          }
-        }
-
-        if (returnsResponse.ok) {
-          const returnsData = await returnsResponse.json();
-          setReturns(returnsData.returns || []);
-        }
-
-        if (itemsResponse.ok) {
-          const itemsData = await itemsResponse.json();
-          setItems(itemsData.items || []);
-        }
-
-        if (customersResponse.ok) {
-          const customersData = await customersResponse.json();
-          setCustomers(customersData.customers || []);
-        }
-        return;
-      }
-      
-      // Fallback to offline SQLite (only on native)
       const { Capacitor } = await import('@capacitor/core');
       const platform = Capacitor.getPlatform();
-      if (platform === 'android' || platform === 'ios') {
+      const isNative = platform === 'android' || platform === 'ios';
+      
+      let isOnline = navigator.onLine;
+      
+      // Use Network plugin for more reliable detection on native
+      if (isNative) {
+        const { Network } = await import('@capacitor/network');
+        const status = await Network.getStatus();
+        isOnline = status.connected;
+      }
+      
+      // Try online first
+      if (isOnline) {
+        try {
+          // Build query with date range for accurate stats
+          const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
+          
+          // Load all data in parallel for faster loading
+          const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
+            fetch(txUrl),
+            fetch('/api/returns'),
+            fetch('/api/items'),
+            fetch('/api/customers')
+          ]);
+
+          if (txResponse.ok) {
+            const txData = await txResponse.json();
+            setTransactions(txData.transactions || []);
+            // Save server-calculated stats (accurate for ALL transactions in date range)
+            if (txData.stats) {
+              setStats(txData.stats);
+            }
+            
+            // Save to SQLite for offline access (native only)
+            if (isNative && txData.transactions) {
+              const { saveTransactionsToCache } = await import('@/lib/db/sqlite');
+              await saveTransactionsToCache(user!.id, txData.transactions);
+            }
+          }
+
+          if (returnsResponse.ok) {
+            const returnsData = await returnsResponse.json();
+            setReturns(returnsData.returns || []);
+          }
+
+          if (itemsResponse.ok) {
+            const itemsData = await itemsResponse.json();
+            setItems(itemsData.items || []);
+            
+            // Save items to SQLite for offline access (native only)
+            if (isNative && itemsData.items) {
+              const { saveItemsToCache } = await import('@/lib/db/sqlite');
+              await saveItemsToCache(user!.id, itemsData.items);
+            }
+          }
+
+          if (customersResponse.ok) {
+            const customersData = await customersResponse.json();
+            setCustomers(customersData.customers || []);
+            
+            // Save customers to SQLite for offline access (native only)
+            if (isNative && customersData.customers) {
+              const { saveCustomersToCache } = await import('@/lib/db/sqlite');
+              await saveCustomersToCache(user!.id, customersData.customers);
+            }
+          }
+          setLoadedFromCache(false);
+          return;
+        } catch (error) {
+          console.log('Online fetch failed, falling back to offline data:', error);
+          // Continue to offline mode below
+        }
+      }
+      
+      // Load from offline SQLite (when offline or online fetch failed)
+      if (isNative) {
         const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
         
         const [offlineTxs, offlineItems, offlineCustomers] = await Promise.all([
@@ -146,7 +251,11 @@ export default function SalesPage() {
           totalProfit
         });
         
+        setLoadedFromCache(true);
         console.log('Loaded sales data from offline storage');
+      } else {
+        // Web platform offline - show message
+        alert('No internet connection. Please connect to view data.');
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -403,6 +512,42 @@ export default function SalesPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
+              {/* Status Indicator */}
+              <div className="flex items-center gap-2 text-sm">
+                {!isOnline ? (
+                  <span className="flex items-center gap-1 text-orange-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                    Offline
+                  </span>
+                ) : loadedFromCache ? (
+                  <span className="flex items-center gap-1 text-blue-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Cached Data
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-green-600 font-medium">
+                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    Online
+                  </span>
+                )}
+                {pendingChanges > 0 && (
+                  <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                    {pendingChanges} Unsynced
+                  </span>
+                )}
+              </div>
+              
+              {/* Refresh Button */}
+              <Button 
+                onClick={handleRefresh} 
+                variant="outline" 
+                disabled={isRefreshing}
+                className="hidden md:flex"
+              >
+                <RotateCcw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Syncing...' : 'Refresh'}
+              </Button>
+              
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Sales</h2>
                 <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
