@@ -1,10 +1,12 @@
+export const dynamic = 'force-static';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToMongoDB, findOne, findMany, updateOne, insertOne } from '@/lib/db/mongodb';
 import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 export async function POST(request: NextRequest) {
   try {

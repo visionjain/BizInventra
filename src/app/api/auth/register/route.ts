@@ -1,7 +1,9 @@
+export const dynamic = 'force-static';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoDB, findOne, insertOne } from '@/lib/db/mongodb';
 import { hashPassword, generateToken } from '@/lib/auth/utils';
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 export async function POST(request: NextRequest) {
   try {
     const { name, email, phoneNumber, companyName, password } = await request.json();

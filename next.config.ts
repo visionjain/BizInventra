@@ -1,15 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: process.env.BUILD_MODE === 'android' ? 'export' : undefined,
+  output: 'export', // Always use static export for now (mainly for Capacitor)
   images: {
     unoptimized: true,
   },
-  // Disable server-side features when building for Android
-  ...(process.env.BUILD_MODE === 'android' && {
-    trailingSlash: true,
-    skipTrailingSlashRedirect: true,
-  })
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
 };
 
 export default nextConfig;

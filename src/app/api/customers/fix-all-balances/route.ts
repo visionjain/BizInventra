@@ -1,3 +1,5 @@
+export const dynamic = 'force-static';
+
 // Fix all customer balances by recalculating from transactions
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoDB, findMany, updateOne } from '@/lib/db/mongodb';
@@ -5,7 +7,7 @@ import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 export async function POST(request: NextRequest) {
   try {

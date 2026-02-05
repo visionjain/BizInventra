@@ -5,7 +5,7 @@ import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

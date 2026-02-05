@@ -1,10 +1,12 @@
+export const dynamic = 'force-static';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToMongoDB, findMany, updateOne, findOne } from '@/lib/db/mongodb';
 import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 // This endpoint fixes transaction balances for customers
 export async function POST(request: NextRequest) {

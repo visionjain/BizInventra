@@ -1,10 +1,12 @@
+export const dynamic = 'force-static';
+
 // Customers API - GET all customers and POST new customer
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoDB, findMany, insertOne } from '@/lib/db/mongodb';
 import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 export async function GET(request: NextRequest) {
   try {

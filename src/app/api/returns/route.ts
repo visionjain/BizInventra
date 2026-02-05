@@ -1,3 +1,5 @@
+export const dynamic = 'force-static';
+
 // Return Transaction API - Create return/refund
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoDB, findOne, insertOne, updateOne, findMany } from '@/lib/db/mongodb';
@@ -5,7 +7,7 @@ import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 export async function POST(request: NextRequest) {
   try {

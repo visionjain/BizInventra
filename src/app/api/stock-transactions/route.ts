@@ -1,3 +1,5 @@
+export const dynamic = 'force-static';
+
 // Stock Transactions API - GET all stock transactions and POST new stock addition
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToMongoDB, findMany, insertOne, updateOne, findOne } from '@/lib/db/mongodb';
@@ -5,7 +7,7 @@ import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
-// export const dynamic = 'force-dynamic'; // Commented for static export
+// export const dynamic = 'force-static'; // Commented for static export
 
 export async function GET(request: NextRequest) {
   try {
