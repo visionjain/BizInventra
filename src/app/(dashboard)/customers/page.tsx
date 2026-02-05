@@ -26,7 +26,7 @@ export default function CustomersPage() {
   const [paymentsToShow, setPaymentsToShow] = useState(5);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   
   // Pagination
