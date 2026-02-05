@@ -4,13 +4,16 @@ const config: CapacitorConfig = {
   appId: 'com.bizinventra.app',
   appName: 'Bizinventra',
   webDir: 'out',
-  // server.url should NOT be set for production - it forces the app to load from web instead of local files
-  // Only use server.url during development with live reload
+  server: {
+    androidScheme: 'https',
+    cleartext: true
+  },
   android: {
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined
-    }
+    },
+    allowMixedContent: true
   },
   plugins: {
     SplashScreen: {

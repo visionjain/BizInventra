@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
-// Production config for Vercel - includes API routes
-// For Android builds, use build:android script which uses next.config.android.ts
+// Production config with API routes for Vercel
 const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
