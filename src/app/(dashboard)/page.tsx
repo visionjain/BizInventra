@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
@@ -70,6 +70,8 @@ export default function DashboardPage() {
   const { user, logout, checkAuth } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasCheckedAuth = useRef(false);
+  const isRedirecting = useRef(false);
   
   // Get today's date
   const getTodayDate = () => {
@@ -100,18 +102,29 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
+    // Only run auth check once
+    if (hasCheckedAuth.current) return;
+    
     console.log('Dashboard: Starting auth check...');
     checkAuth();
-    console.log('Dashboard: Auth check called');
-    // Immediate initialization - no delay needed
+    hasCheckedAuth.current = true;
+    console.log('Dashboard: Auth check called, user=', user ? 'exists' : 'null');
+    
+    // Mark as initialized after auth check
     setIsInitialized(true);
-  }, [checkAuth]);
+    console.log('Dashboard: Initialization complete');
+  }, []); // Empty deps - only run once on mount
 
   useEffect(() => {
-    console.log('Dashboard: isInitialized=', isInitialized, 'user=', user ? 'exists' : 'null');
-    if (isInitialized && !user) {
+    // Check authentication after initialization
+    if (!isInitialized) return;
+    if (isRedirecting.current) return; // Prevent multiple redirects
+    
+    console.log('Dashboard: Auth state check - user=', user ? 'exists' : 'null');
+    
+    if (!user) {
       console.log('Dashboard: No user found, redirecting to login');
-      // Direct redirect for Capacitor
+      isRedirecting.current = true;
       window.location.replace('/login/');
     }
   }, [isInitialized, user]);
