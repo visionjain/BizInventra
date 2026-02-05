@@ -9,6 +9,7 @@ import { useCustomersStore } from '@/store/customersStore';
 import { TransactionForm } from '@/components/sales/TransactionForm';
 import { ReturnForm } from '@/components/returns/ReturnForm';
 import { Button } from '@/components/ui/Button';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Plus, Search, LogOut, Trash2, DollarSign, ShoppingCart, TrendingUp, Eye, Edit2, Package, RotateCcw } from 'lucide-react';
 
 export default function SalesPage() {
@@ -512,41 +513,8 @@ export default function SalesPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
-              {/* Status Indicator */}
-              <div className="flex items-center gap-2 text-sm">
-                {!isOnline ? (
-                  <span className="flex items-center gap-1 text-orange-600 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                    Offline
-                  </span>
-                ) : loadedFromCache ? (
-                  <span className="flex items-center gap-1 text-blue-600 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                    Cached Data
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-green-600 font-medium">
-                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                    Online
-                  </span>
-                )}
-                {pendingChanges > 0 && (
-                  <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                    {pendingChanges} Unsynced
-                  </span>
-                )}
-              </div>
-              
-              {/* Refresh Button */}
-              <Button 
-                onClick={handleRefresh} 
-                variant="outline" 
-                disabled={isRefreshing}
-                className="hidden md:flex"
-              >
-                <RotateCcw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Syncing...' : 'Refresh'}
-              </Button>
+              {/* Connection Status */}
+              <ConnectionStatus onRefresh={handleRefresh} />
               
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Sales</h2>

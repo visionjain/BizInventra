@@ -8,6 +8,7 @@ import { useStockTransactionsStore } from '@/store/stockTransactionsStore';
 import { ItemForm } from '@/components/items/ItemForm';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Item, ItemUnit } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, PackagePlus, History, DollarSign, TrendingUp, Clock, Phone } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -476,6 +477,7 @@ export default function ItemsPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
+              <ConnectionStatus onRefresh={loadItems} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Items</h2>
                 <p className="text-sm text-gray-600">{user?.companyName}</p>

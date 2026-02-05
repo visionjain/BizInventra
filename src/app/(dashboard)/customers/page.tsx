@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useCustomersStore } from '@/store/customersStore';
 import { CustomerForm } from '@/components/customers/CustomerForm';
 import { Button } from '@/components/ui/Button';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Customer } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, Phone, DollarSign, Eye, X } from 'lucide-react';
 
@@ -398,6 +399,7 @@ export default function CustomersPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
+              <ConnectionStatus onRefresh={loadCustomers} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Customers</h2>
                 <p className="text-sm text-gray-600">Welcome, {user?.name}</p>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
@@ -131,85 +132,176 @@ export default function DashboardPage() {
     try {
       console.log('Dashboard: Fetching optimized stats...');
       
-      // If custom period and dates are set, fetch custom stats
-      if (timePeriod === 'custom' && startDate && endDate) {
-        const customResponse = await fetch(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
-        if (customResponse.ok) {
-          const customData = await customResponse.json();
-          const transactions = customData.transactions || [];
-          
-          // Calculate custom stats
-          let totalSales = 0;
-          let totalProfit = 0;
-          let totalRealizedProfit = 0;
-          let totalUnrealizedProfit = 0;
-          let totalOutstanding = 0;
-          let totalCharges = 0;
-          let totalReturns = 0;
-          let totalReturnsProfit = 0;
-          
-          transactions.forEach((tx: any) => {
-            const itemsTotal = tx.items?.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0) || 0;
-            totalSales += itemsTotal;
-            totalProfit += tx.totalProfit || 0;
-            totalCharges += tx.totalAdditionalCharges || 0;
-            totalOutstanding += tx.balanceAmount || 0;
-            
-            // Calculate realized vs unrealized profit
-            if (tx.balanceAmount === 0) {
-              totalRealizedProfit += tx.totalProfit || 0;
-            } else if (tx.balanceAmount > 0) {
-              totalUnrealizedProfit += tx.totalProfit || 0;
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      
+      let isOnline = navigator.onLine;
+      
+      // Use Network plugin for more reliable detection on native
+      if (isNative) {
+        const { Network } = await import('@capacitor/network');
+        const status = await Network.getStatus();
+        isOnline = status.connected;
+      }
+      
+      // Try online first
+      if (isOnline) {
+        try {
+          // If custom period and dates are set, fetch custom stats
+          if (timePeriod === 'custom' && startDate && endDate) {
+            const customResponse = await fetch(`/api/transactions/paginated?startDate=${startDate}&endDate=${endDate}&limit=1000`);
+            if (customResponse.ok) {
+              const customData = await customResponse.json();
+              const transactions = customData.transactions || [];
+              
+              // Calculate custom stats
+              let totalSales = 0;
+              let totalProfit = 0;
+              let totalRealizedProfit = 0;
+              let totalUnrealizedProfit = 0;
+              let totalOutstanding = 0;
+              let totalCharges = 0;
+              let totalReturns = 0;
+              let totalReturnsProfit = 0;
+              
+              transactions.forEach((tx: any) => {
+                const itemsTotal = tx.items?.reduce((sum: number, item: any) => sum + ((item.quantity || 0) * (item.pricePerUnit || 0)), 0) || 0;
+                totalSales += itemsTotal;
+                totalProfit += tx.totalProfit || 0;
+                totalCharges += tx.totalAdditionalCharges || 0;
+                totalOutstanding += tx.balanceAmount || 0;
+                
+                // Calculate realized vs unrealized profit
+                if (tx.balanceAmount === 0) {
+                  totalRealizedProfit += tx.totalProfit || 0;
+                } else if (tx.balanceAmount > 0) {
+                  totalUnrealizedProfit += tx.totalProfit || 0;
+                }
+              });
+              
+              setCustomStats({
+                sales: totalSales,
+                profit: totalProfit,
+                realizedProfit: totalRealizedProfit,
+                unrealizedProfit: totalUnrealizedProfit,
+                outstanding: totalOutstanding,
+                transactions: transactions.length,
+                itemsSold: transactions.reduce((sum: number, tx: any) => sum + (tx.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) || 0), 0),
+                additionalCharges: totalCharges,
+                returns: totalReturns,
+                returnsProfit: totalReturnsProfit
+              });
             }
-          });
+          }
           
-          setCustomStats({
-            sales: totalSales,
-            profit: totalProfit,
-            realizedProfit: totalRealizedProfit,
-            unrealizedProfit: totalUnrealizedProfit,
-            outstanding: totalOutstanding,
-            transactions: transactions.length,
-            itemsSold: transactions.reduce((sum: number, tx: any) => sum + (tx.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) || 0), 0),
-            additionalCharges: totalCharges,
-            returns: totalReturns,
-            returnsProfit: totalReturnsProfit
+          // Always fetch predefined period stats
+          const response = await fetch('/api/dashboard/stats');
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch dashboard stats');
+          }
+
+          const data = await response.json();
+          
+          console.log('Dashboard: Stats received', data);
+
+          // Set stats from server aggregation
+          setStats({
+            weekly: data.stats.weekly,
+            monthly: data.stats.monthly,
+            yearly: data.stats.yearly,
+            today: data.stats.today,
+            inventory: data.stats.inventory,
+            customers: data.stats.customers
           });
+
+          // Fetch profitable products based on profitPeriod
+          const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
+          const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
+
+          // Set chart data
+          setChartData({
+            salesTrend: data.chartData.salesTrend,
+            profitableProducts: profitData.products || [],
+          });
+
+          console.log('Dashboard: Stats loaded successfully');
+          return;
+        } catch (error) {
+          console.log('Online fetch failed, falling back to offline data:', error);
+          // Continue to offline mode below
         }
       }
       
-      // Always fetch predefined period stats
-      const response = await fetch('/api/dashboard/stats');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch dashboard stats');
+      // Load from offline SQLite (when offline or online fetch failed)
+      if (isNative) {
+        const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
+        
+        const [transactions, items, customers] = await Promise.all([
+          getTransactionsOffline(user!.id),
+          getItemsOffline(user!.id),
+          getCustomersOffline(user!.id)
+        ]);
+        
+        // Calculate stats from offline data
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        
+        const calculatePeriodStats = (txs: any[]) => {
+          return {
+            sales: txs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0),
+            profit: txs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+            realizedProfit: txs.filter(tx => tx.balanceAmount === 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+            unrealizedProfit: txs.filter(tx => tx.balanceAmount > 0).reduce((sum, tx) => sum + (tx.totalProfit || 0), 0),
+            outstanding: txs.reduce((sum, tx) => sum + tx.balanceAmount, 0),
+            transactions: txs.length,
+            itemsSold: txs.reduce((sum, tx) => sum + (tx.items?.length || 0), 0),
+            additionalCharges: txs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0),
+            returns: 0,
+            returnsProfit: 0
+          };
+        };
+        
+        const weeklyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= weekAgo);
+        const monthlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= monthAgo);
+        const yearlyTxs = transactions.filter(tx => new Date(tx.transactionDate) >= yearAgo);
+        
+        setStats({
+          weekly: calculatePeriodStats(weeklyTxs),
+          monthly: calculatePeriodStats(monthlyTxs),
+          yearly: calculatePeriodStats(yearlyTxs),
+          today: { outstanding: transactions.reduce((sum, tx) => sum + tx.balanceAmount, 0) },
+          inventory: {
+            totalItems: items.length,
+            lowStock: items.filter(i => i.quantity < 10).length,
+            totalValue: items.reduce((sum, i) => sum + (i.quantity * i.buyPrice), 0)
+          },
+          customers: {
+            total: customers.length,
+            outstanding: customers.reduce((sum, c) => sum + (c.balance || 0), 0)
+          }
+        });
+        
+        // Calculate custom stats if needed
+        if (timePeriod === 'custom' && startDate && endDate) {
+          const customTxs = transactions.filter(tx => {
+            const txDate = new Date(tx.transactionDate);
+            return txDate >= new Date(startDate) && txDate <= new Date(endDate);
+          });
+          setCustomStats(calculatePeriodStats(customTxs));
+        }
+        
+        // For offline, use empty chart data
+        setChartData({
+          salesTrend: [],
+          profitableProducts: []
+        });
+        
+        console.log('Dashboard: Loaded from offline storage');
       }
-
-      const data = await response.json();
-      
-      console.log('Dashboard: Stats received', data);
-
-      // Set stats from server aggregation
-      setStats({
-        weekly: data.stats.weekly,
-        monthly: data.stats.monthly,
-        yearly: data.stats.yearly,
-        today: data.stats.today,
-        inventory: data.stats.inventory,
-        customers: data.stats.customers
-      });
-
-      // Fetch profitable products based on profitPeriod
-      const profitResponse = await fetch(`/api/dashboard/profitable-products?period=${profitPeriod}`);
-      const profitData = profitResponse.ok ? await profitResponse.json() : { products: [] };
-
-      // Set chart data
-      setChartData({
-        salesTrend: data.chartData.salesTrend,
-        profitableProducts: profitData.products || [],
-      });
-
-      console.log('Dashboard: Stats loaded successfully');
     } catch (error) {
       console.error('Dashboard: Failed to load data', error);
     } finally {
@@ -241,6 +333,7 @@ export default function DashboardPage() {
               <img src="/titlelogo.png" alt="Bizinventra" className="h-10 hidden md:block" />
             </div>
             <div className="flex items-center gap-4">
+              <ConnectionStatus onRefresh={loadDashboardData} />
               <div className="text-right">
                 <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
                 <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
