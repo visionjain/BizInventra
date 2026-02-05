@@ -90,27 +90,52 @@ export default function ItemsPage() {
   const loadItems = async () => {
     setLoading(true);
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      
+      let isOnline = navigator.onLine;
+      
+      // Use Network plugin for reliable detection on native
+      if (isNative) {
+        const { Network } = await import('@capacitor/network');
+        const status = await Network.getStatus();
+        isOnline = status.connected;
+      }
+      
       // Try online first
-      if (navigator.onLine) {
-        const response = await fetch('/api/items');
-        if (response.ok) {
-          const data = await response.json();
-          setItems(data.items || []);
-          return;
+      if (isOnline) {
+        try {
+          const response = await fetch('/api/items');
+          if (response.ok) {
+            const data = await response.json();
+            setItems(data.items || []);
+            
+            // Save to cache for offline access
+            if (isNative && data.items) {
+              const { saveItemsToCache } = await import('@/lib/db/sqlite');
+              await saveItemsToCache(user!.id, data.items);
+            }
+            return;
+          }
+        } catch (error) {
+          console.log('Online fetch failed, falling back to offline:', error);
+          // Continue to offline mode below
         }
       }
       
-      // Fallback to offline SQLite (only on native)
-      const { Capacitor } = await import('@capacitor/core');
-      const platform = Capacitor.getPlatform();
-      if (platform === 'android' || platform === 'ios') {
+      // Load from offline SQLite
+      if (isNative) {
         const { getItemsOffline } = await import('@/lib/db/sqlite');
         const offlineItems = await getItemsOffline(user!.id);
         setItems(offlineItems);
         console.log('Loaded items from offline storage');
+      } else {
+        setItems([]);
       }
     } catch (error) {
       console.error('Failed to load items:', error);
+      setItems([]);
     } finally {
       setLoading(false);
     }

@@ -68,27 +68,52 @@ export default function CustomersPage() {
   const loadCustomers = async () => {
     setLoading(true);
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      
+      let isOnline = navigator.onLine;
+      
+      // Use Network plugin for reliable detection on native
+      if (isNative) {
+        const { Network } = await import('@capacitor/network');
+        const status = await Network.getStatus();
+        isOnline = status.connected;
+      }
+      
       // Try online first
-      if (navigator.onLine) {
-        const response = await fetch('/api/customers');
-        if (response.ok) {
-          const data = await response.json();
-          setCustomers(data.customers || []);
-          return;
+      if (isOnline) {
+        try {
+          const response = await fetch('/api/customers');
+          if (response.ok) {
+            const data = await response.json();
+            setCustomers(data.customers || []);
+            
+            // Save to cache for offline access
+            if (isNative && data.customers) {
+              const { saveCustomersToCache } = await import('@/lib/db/sqlite');
+              await saveCustomersToCache(user!.id, data.customers);
+            }
+            return;
+          }
+        } catch (error) {
+          console.log('Online fetch failed, falling back to offline:', error);
+          // Continue to offline mode below
         }
       }
       
-      // Fallback to offline SQLite (only on native)
-      const { Capacitor } = await import('@capacitor/core');
-      const platform = Capacitor.getPlatform();
-      if (platform === 'android' || platform === 'ios') {
+      // Load from offline SQLite
+      if (isNative) {
         const { getCustomersOffline } = await import('@/lib/db/sqlite');
         const offlineCustomers = await getCustomersOffline(user!.id);
         setCustomers(offlineCustomers);
         console.log('Loaded customers from offline storage');
+      } else {
+        setCustomers([]);
       }
     } catch (error) {
       console.error('Failed to load customers:', error);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
