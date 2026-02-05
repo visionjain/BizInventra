@@ -25,43 +25,76 @@ export default function LoginPage() {
     try {
       // Check if running in Capacitor
       let isCapacitor = false;
+      let Capacitor: any;
       try {
-        const { Capacitor } = await import('@capacitor/core');
+        const cap = await import('@capacitor/core');
+        Capacitor = cap.Capacitor;
         isCapacitor = Capacitor.isNativePlatform();
-      } catch {}
+        console.log('Platform:', Capacitor.getPlatform());
+      } catch (e) {
+        console.log('Not running in Capacitor');
+      }
       
       // Use production API for Capacitor, local API for web dev
       const apiUrl = isCapacitor 
         ? (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app')
         : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app'));
       
-      console.log('Login attempt - isCapacitor:', isCapacitor, 'apiUrl:', apiUrl);
+      const fullUrl = `${apiUrl}/api/auth/login`;
+      console.log('Login attempt - isCapacitor:', isCapacitor, 'fullUrl:', fullUrl);
+      console.log('Credentials:', emailOrPhone);
       
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ emailOrPhone, password }),
-        mode: 'cors'
-      });
-
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
-
-      if (data.success) {
-        setUser(data.user, data.token);
+      // For Capacitor, use the HTTP plugin instead of fetch
+      if (isCapacitor && Capacitor) {
+        console.log('Using Capacitor HTTP plugin...');
+        const { CapacitorHttp } = await import('@capacitor/core');
         
-        // Redirect to dashboard
-        window.location.href = '/';
+        const response = await CapacitorHttp.post({
+          url: fullUrl,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          data: { emailOrPhone, password }
+        });
+
+        console.log('Capacitor HTTP Response status:', response.status);
+        console.log('Capacitor HTTP Response data:', response.data);
+
+        if (response.data.success) {
+          setUser(response.data.user, response.data.token);
+          window.location.href = '/';
+        } else {
+          setErrorMsg(response.data.error || 'Login failed');
+          setError(response.data.error || 'Login failed');
+        }
       } else {
-        setErrorMsg(data.error || 'Login failed');
-        setError(data.error || 'Login failed');
+        // Web fetch
+        console.log('Using web fetch...');
+        const response = await fetch(fullUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ emailOrPhone, password })
+        });
+
+        console.log('Web fetch Response status:', response.status);
+        const data = await response.json();
+        console.log('Web fetch Response data:', data);
+
+        if (data.success) {
+          setUser(data.user, data.token);
+          window.location.href = '/';
+        } else {
+          setErrorMsg(data.error || 'Login failed');
+          setError(data.error || 'Login failed');
+        }
       }
     } catch (err: any) {
       console.error('Login error:', err);
+      console.error('Error stack:', err.stack);
       setErrorMsg(`Login failed: ${err.message}`);
       setError('Connection failed');
     } finally {
