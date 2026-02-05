@@ -116,7 +116,12 @@ export default function DashboardPage() {
     console.log('Dashboard: isInitialized=', isInitialized, 'user=', user ? 'exists' : 'null');
     if (isInitialized && !user) {
       console.log('Dashboard: No user found, redirecting to login');
-      router.push('/login');
+      // Use window.location for Capacitor compatibility
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      } else {
+        router.push('/login');
+      }
     }
   }, [isInitialized, user, router]);
 
@@ -313,7 +318,12 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    // Use window.location for Capacitor compatibility
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    } else {
+      router.push('/login');
+    }
   };
 
   if (!isInitialized || (isInitialized && !user)) {
