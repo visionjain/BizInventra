@@ -23,18 +23,33 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Use local API in development, production API in Android/production
-      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
-        ? '' 
-        : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
+      // Check if running in Capacitor
+      let isCapacitor = false;
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        isCapacitor = Capacitor.isNativePlatform();
+      } catch {}
+      
+      // Use production API for Capacitor, local API for web dev
+      const apiUrl = isCapacitor 
+        ? (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app')
+        : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app'));
+      
+      console.log('Login attempt - isCapacitor:', isCapacitor, 'apiUrl:', apiUrl);
       
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ emailOrPhone, password }),
+        mode: 'cors'
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (data.success) {
         setUser(data.user, data.token);
@@ -45,9 +60,9 @@ export default function LoginPage() {
         setErrorMsg(data.error || 'Login failed');
         setError(data.error || 'Login failed');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setErrorMsg('Login failed. Please check your connection.');
+      setErrorMsg(`Login failed: ${err.message}`);
       setError('Connection failed');
     } finally {
       setIsLoading(false);
