@@ -29,7 +29,6 @@ export default function CustomersPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const hasRedirected = useRef(false);
-  const hasRedirected = useRef(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
