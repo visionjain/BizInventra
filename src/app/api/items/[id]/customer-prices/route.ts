@@ -5,7 +5,7 @@ import { verifyToken } from '@/lib/auth/utils';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 // GET customer prices for an item
 export async function GET(

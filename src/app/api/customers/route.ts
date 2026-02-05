@@ -1,4 +1,4 @@
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 // Customers API - GET all customers and POST new customer
 import { NextRequest, NextResponse } from 'next/server';

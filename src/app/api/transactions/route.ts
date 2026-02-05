@@ -1,4 +1,4 @@
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 // Sales/Transactions API - GET all transactions and POST new transaction
 import { NextRequest, NextResponse } from 'next/server';

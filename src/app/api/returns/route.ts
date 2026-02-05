@@ -1,4 +1,4 @@
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 // Return Transaction API - Create return/refund
 import { NextRequest, NextResponse } from 'next/server';
