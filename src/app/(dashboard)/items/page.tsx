@@ -92,6 +92,55 @@ export default function ItemsPage() {
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
+      // Helper function for HTTP requests
+      const apiRequest = async (url: string, options?: any) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        console.log('API Request:', fullUrl, 'isNative:', isNative);
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          
+          if (options?.method && options.method !== 'GET') {
+            const response = await CapacitorHttp.request({
+              url: fullUrl,
+              method: options.method,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+              },
+              data: options.body ? JSON.parse(options.body) : undefined
+            });
+            return { ok: response.status >= 200 && response.status < 300, json: async () => response.data };
+          } else {
+            const response = await CapacitorHttp.get({
+              url: fullUrl,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              }
+            });
+            return { ok: response.status === 200, json: async () => response.data };
+          }
+        } else {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...options?.headers
+            }
+          });
+          return { ok: response.ok, json: async () => response.json() };
+        }
+      };
+      
       // Step 1: Load from cache immediately (native only)
       if (isNative && user) {
         const { getItemsOffline } = await import('@/lib/db/sqlite');
@@ -117,7 +166,7 @@ export default function ItemsPage() {
         
         try {
           console.log('Items: Background sync started');
-          const response = await fetch('/api/items');
+          const response = await apiRequest('/api/items');
           
           if (response.ok) {
             const data = await response.json();
@@ -512,7 +561,19 @@ export default function ItemsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
-              onClick={() => { const url = new URL('../index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/';
+                  }
+                } catch {
+                  window.location.href = '/';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Dashboard
@@ -523,13 +584,37 @@ export default function ItemsPage() {
               Items
             </button>
             <button
-              onClick={() => { const url = new URL('../customers/index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../customers/index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/customers';
+                  }
+                } catch {
+                  window.location.href = '/customers';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Customers
             </button>
             <button
-              onClick={() => { const url = new URL('../sales/index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../sales/index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/sales';
+                  }
+                } catch {
+                  window.location.href = '/sales';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Sales

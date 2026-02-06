@@ -441,13 +441,37 @@ export default function CustomersPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
-              onClick={() => { const url = new URL('../index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/';
+                  }
+                } catch {
+                  window.location.href = '/';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Dashboard
             </button>
             <button
-              onClick={() => { const url = new URL('../items/index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../items/index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/items';
+                  }
+                } catch {
+                  window.location.href = '/items';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Items
@@ -458,7 +482,19 @@ export default function CustomersPage() {
               Customers
             </button>
             <button
-              onClick={() => { const url = new URL('../sales/index.html', window.location.href); window.location.href = url.href; }}
+              onClick={async () => {
+                try {
+                  const { Capacitor } = await import('@capacitor/core');
+                  if (Capacitor.isNativePlatform()) {
+                    const url = new URL('../sales/index.html', window.location.href);
+                    window.location.href = url.href;
+                  } else {
+                    window.location.href = '/sales';
+                  }
+                } catch {
+                  window.location.href = '/sales';
+                }
+              }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Sales
