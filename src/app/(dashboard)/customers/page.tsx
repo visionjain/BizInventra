@@ -69,6 +69,55 @@ export default function CustomersPage() {
       const platform = Capacitor.getPlatform();
       const isNative = platform === 'android' || platform === 'ios';
       
+      // Helper function for HTTP requests
+      const apiRequest = async (url: string, options?: any) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        console.log('API Request:', fullUrl, 'isNative:', isNative);
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          
+          if (options?.method && options.method !== 'GET') {
+            const response = await CapacitorHttp.request({
+              url: fullUrl,
+              method: options.method,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+              },
+              data: options.body ? JSON.parse(options.body) : undefined
+            });
+            return { ok: response.status >= 200 && response.status < 300, json: async () => response.data };
+          } else {
+            const response = await CapacitorHttp.get({
+              url: fullUrl,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              }
+            });
+            return { ok: response.status === 200, json: async () => response.data };
+          }
+        } else {
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...options?.headers
+            }
+          });
+          return { ok: response.ok, json: async () => response.json() };
+        }
+      };
+      
       // Step 1: Load from cache immediately (native only)
       if (isNative && user) {
         const { getCustomersOffline } = await import('@/lib/db/sqlite');
@@ -94,7 +143,7 @@ export default function CustomersPage() {
         
         try {
           console.log('Customers: Background sync started');
-          const response = await fetch('/api/customers');
+          const response = await apiRequest('/api/customers');
           
           if (response.ok) {
             const data = await response.json();

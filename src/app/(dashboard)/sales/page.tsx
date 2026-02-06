@@ -147,6 +147,71 @@ export default function SalesPage() {
     const platform = Capacitor.getPlatform();
     const isNative = platform === 'android' || platform === 'ios';
     
+    // Helper function for API requests (handles Capacitor HTTP)
+    const apiRequest = async (url: string, options?: any) => {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+      const fullUrl = isNative ? `${apiUrl}${url}` : url;
+      
+      if (isNative) {
+        const { CapacitorHttp } = await import('@capacitor/core');
+        const token = localStorage.getItem('auth_token');
+        
+        if (options?.method && options.method !== 'GET') {
+          // POST, PUT, DELETE requests
+          const response = await CapacitorHttp.request({
+            url: fullUrl,
+            method: options.method,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ...options.headers
+            },
+            data: options.body ? JSON.parse(options.body) : undefined
+          });
+          
+          return {
+            ok: response.status >= 200 && response.status < 300,
+            status: response.status,
+            json: async () => response.data
+          };
+        } else {
+          // GET requests
+          const response = await CapacitorHttp.get({
+            url: fullUrl,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+          
+          return {
+            ok: response.status === 200,
+            status: response.status,
+            json: async () => response.data
+          };
+        }
+      } else {
+        // Web: use regular fetch
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(fullUrl, {
+          ...options,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...options?.headers
+          }
+        });
+        
+        return {
+          ok: response.ok,
+          status: response.status,
+          json: async () => response.json()
+        };
+      }
+    };
+    
     // Load from cache immediately for instant display (native only)
     if (isNative && user) {
       try {
@@ -204,10 +269,10 @@ export default function SalesPage() {
         
         // Load all data in parallel for faster loading
         const [txResponse, returnsResponse, itemsResponse, customersResponse] = await Promise.all([
-          fetch(txUrl),
-          fetch('/api/returns'),
-          fetch('/api/items'),
-          fetch('/api/customers')
+          apiRequest(txUrl),
+          apiRequest('/api/returns'),
+          apiRequest('/api/items'),
+          apiRequest('/api/customers')
         ]);
 
         if (txResponse.ok) {
@@ -271,6 +336,71 @@ export default function SalesPage() {
       const isNative = platform === 'android' || platform === 'ios';
       const isEditing = !!editingTransaction;
       
+      // Helper function for API requests (handles Capacitor HTTP)
+      const apiRequest = async (url: string, options?: any) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          
+          if (options?.method && options.method !== 'GET') {
+            // POST, PUT, DELETE requests
+            const response = await CapacitorHttp.request({
+              url: fullUrl,
+              method: options.method,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                ...options.headers
+              },
+              data: options.body ? JSON.parse(options.body) : undefined
+            });
+            
+            return {
+              ok: response.status >= 200 && response.status < 300,
+              status: response.status,
+              json: async () => response.data
+            };
+          } else {
+            // GET requests
+            const response = await CapacitorHttp.get({
+              url: fullUrl,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              }
+            });
+            
+            return {
+              ok: response.status === 200,
+              status: response.status,
+              json: async () => response.data
+            };
+          }
+        } else {
+          // Web: use regular fetch
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...options?.headers
+            }
+          });
+          
+          return {
+            ok: response.ok,
+            status: response.status,
+            json: async () => response.json()
+          };
+        }
+      };
+      
       let savedOnline = false;
 
       // For native apps, try online first but fall back to offline on any error
@@ -281,7 +411,7 @@ export default function SalesPage() {
             : '/api/transactions';
           const method = isEditing ? 'PUT' : 'POST';
 
-          const response = await fetch(url, {
+          const response = await apiRequest(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData),
@@ -347,7 +477,7 @@ export default function SalesPage() {
           : '/api/transactions';
         const method = isEditing ? 'PUT' : 'POST';
 
-        const response = await fetch(url, {
+        const response = await apiRequest(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -383,8 +513,58 @@ export default function SalesPage() {
     if (!confirm('Are you sure you want to delete this sale? This will revert stock and customer balance.')) return;
 
     try {
+      const { Capacitor } = await import('@capacitor/core');
+      const platform = Capacitor.getPlatform();
+      const isNative = platform === 'android' || platform === 'ios';
+      
+      // Helper function for API requests (handles Capacitor HTTP)
+      const apiRequest = async (url: string, options?: any) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          
+          const response = await CapacitorHttp.request({
+            url: fullUrl,
+            method: options?.method || 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ...options?.headers
+            },
+            data: options?.body ? JSON.parse(options.body) : undefined
+          });
+          
+          return {
+            ok: response.status >= 200 && response.status < 300,
+            status: response.status,
+            json: async () => response.data
+          };
+        } else {
+          // Web: use regular fetch
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...options?.headers
+            }
+          });
+          
+          return {
+            ok: response.ok,
+            status: response.status,
+            json: async () => response.json()
+          };
+        }
+      };
+      
       const transactionId = typeof id === 'object' ? id.toString() : id;
-      const response = await fetch(`/api/transactions/${transactionId}`, {
+      const response = await apiRequest(`/api/transactions/${transactionId}`, {
         method: 'DELETE',
       });
 
@@ -411,9 +591,55 @@ export default function SalesPage() {
       const isNative = platform === 'android' || platform === 'ios';
       const isOffline = !navigator.onLine;
 
+      // Helper function for API requests (handles Capacitor HTTP)
+      const apiRequest = async (url: string, options?: any) => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        
+        if (isNative) {
+          const { CapacitorHttp } = await import('@capacitor/core');
+          const token = localStorage.getItem('auth_token');
+          
+          const response = await CapacitorHttp.request({
+            url: fullUrl,
+            method: options?.method || 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ...options?.headers
+            },
+            data: options?.body ? JSON.parse(options.body) : undefined
+          });
+          
+          return {
+            ok: response.status >= 200 && response.status < 300,
+            status: response.status,
+            json: async () => response.data
+          };
+        } else {
+          // Web: use regular fetch
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              ...options?.headers
+            }
+          });
+          
+          return {
+            ok: response.ok,
+            status: response.status,
+            json: async () => response.json()
+          };
+        }
+      };
+
       // Try online save first
       if (!isOffline) {
-        const response = await fetch('/api/returns', {
+        const response = await apiRequest('/api/returns', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(returnData),
