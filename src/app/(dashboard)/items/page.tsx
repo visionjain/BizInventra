@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { DebugInfo } from '@/components/DebugInfo';
+import { ApiTestPanel } from '@/components/ApiTestPanel';
 import { Item, ItemUnit } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, PackagePlus, History, DollarSign, TrendingUp, Clock, Phone } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -1328,6 +1329,7 @@ export default function ItemsPage() {
       </div>
     </div>
     <DebugInfo />
+    <ApiTestPanel />
     </PullToRefresh>
   );
 }

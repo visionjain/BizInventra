@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { DebugInfo } from '@/components/DebugInfo';
+import { ApiTestPanel } from '@/components/ApiTestPanel';
 import { Plus, Search, LogOut, Trash2, DollarSign, ShoppingCart, TrendingUp, Eye, Edit2, Package, RotateCcw } from 'lucide-react';
 
 export default function SalesPage() {
@@ -1385,6 +1386,7 @@ export default function SalesPage() {
       </div>
     </div>
     <DebugInfo />
+    <ApiTestPanel />
     </PullToRefresh>
   );
 }

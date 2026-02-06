@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { DebugInfo } from '@/components/DebugInfo';
+import { ApiTestPanel } from '@/components/ApiTestPanel';
 import { Customer } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, Phone, DollarSign, Eye, X } from 'lucide-react';
 
@@ -1235,6 +1236,7 @@ export default function CustomersPage() {
       </div>
     </div>
     <DebugInfo />
+    <ApiTestPanel />
     </PullToRefresh>
   );
 }

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { ApiTestPanel } from '@/components/ApiTestPanel';
 import { LogOut, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, Calendar, BarChart3 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 
@@ -134,31 +135,40 @@ export default function DashboardPage() {
       const apiRequest = async (url: string) => {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
         const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        const token = localStorage.getItem('auth_token');
         
-        console.log('API Request:', fullUrl, 'isNative:', isNative);
+        console.log('📡 API Request:', fullUrl);
+        console.log('   isNative:', isNative);
+        console.log('   token exists:', !!token);
+        console.log('   token length:', token?.length || 0);
         
-        if (isNative) {
-          const { CapacitorHttp } = await import('@capacitor/core');
-          const token = localStorage.getItem('auth_token');
-          const response = await CapacitorHttp.get({
-            url: fullUrl,
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            }
-          });
-          console.log('Capacitor HTTP response:', response.status, response.data);
-          return { ok: response.status === 200, json: async () => response.data };
-        } else {
-          const token = localStorage.getItem('auth_token');
-          const response = await fetch(fullUrl, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          return { ok: response.ok, json: async () => response.json() };
+        try {
+          if (isNative) {
+            const { CapacitorHttp } = await import('@capacitor/core');
+            const response = await CapacitorHttp.get({
+              url: fullUrl,
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              }
+            });
+            console.log('✅ Response status:', response.status);
+            console.log('   Response data sample:', JSON.stringify(response.data).substring(0, 200));
+            return { ok: response.status === 200, json: async () => response.data };
+          } else {
+            const response = await fetch(fullUrl, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            console.log('✅ Response status:', response.status);
+            return { ok: response.ok, json: async () => response.json() };
+          }
+        } catch (error) {
+          console.error('❌ API Request failed:', error);
+          throw error;
         }
       };
       
@@ -323,9 +333,14 @@ export default function DashboardPage() {
             });
             
             console.log('Dashboard: Background sync completed');
+            
+            // Show success notification
+            console.log('✅ Dashboard data loaded successfully');
           }
         } catch (error) {
-          console.log('Dashboard: Background sync failed', error);
+          console.error('Dashboard: Background sync failed', error);
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          alert(`⚠️ Failed to load dashboard data:\n${errorMsg}\n\nTry clicking "Test API" button to diagnose the issue.`);
         } finally {
           setIsUpdating(false);
         }
@@ -1063,6 +1078,7 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+    <ApiTestPanel />
     </PullToRefresh>
   );
 }
