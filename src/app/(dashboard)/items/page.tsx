@@ -512,7 +512,7 @@ export default function ItemsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex gap-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
             <button
-              onClick={() => window.location.href = '/index.html'}
+              onClick={() => { const url = new URL('../index.html', window.location.href); window.location.href = url.href; }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Dashboard
@@ -523,13 +523,13 @@ export default function ItemsPage() {
               Items
             </button>
             <button
-              onClick={() => window.location.href = '/customers/index.html'}
+              onClick={() => { const url = new URL('../customers/index.html', window.location.href); window.location.href = url.href; }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Customers
             </button>
             <button
-              onClick={() => window.location.href = '/sales/index.html'}
+              onClick={() => { const url = new URL('../sales/index.html', window.location.href); window.location.href = url.href; }}
               className="px-4 py-3 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
             >
               Sales
