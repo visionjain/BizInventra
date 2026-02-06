@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { DebugInfo } from '@/components/DebugInfo';
 import { Item, ItemUnit } from '@/types';
 import { Plus, Edit2, Trash2, Search, LogOut, PackagePlus, History, DollarSign, TrendingUp, Clock, Phone } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
@@ -96,12 +97,13 @@ export default function ItemsPage() {
       const apiRequest = async (url: string, options?: any) => {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
         const fullUrl = isNative ? `${apiUrl}${url}` : url;
+        const token = localStorage.getItem('auth_token');
         
         console.log('API Request:', fullUrl, 'isNative:', isNative);
+        console.log('Auth token present:', !!token);
         
         if (isNative) {
           const { CapacitorHttp } = await import('@capacitor/core');
-          const token = localStorage.getItem('auth_token');
           
           if (options?.method && options.method !== 'GET') {
             const response = await CapacitorHttp.request({
@@ -128,7 +130,6 @@ export default function ItemsPage() {
             return { ok: response.status === 200, json: async () => response.data };
           }
         } else {
-          const token = localStorage.getItem('auth_token');
           const response = await fetch(fullUrl, {
             ...options,
             headers: {
@@ -196,6 +197,11 @@ export default function ItemsPage() {
           // If we have cached data, keep showing it
           if (cachedData && cachedData.length > 0) {
             console.log('Items: Using cached data due to API failure');
+          } else {
+            // No cached data and API failed - show error
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Items: No data available. Error:', errorMsg);
+            alert(`Failed to load items: ${errorMsg}\n\nCheck your internet connection and try logging in again.`);
           }
         } finally {
           setIsUpdating(false);
@@ -1321,6 +1327,7 @@ export default function ItemsPage() {
         )}
       </div>
     </div>
+    <DebugInfo />
     </PullToRefresh>
   );
 }

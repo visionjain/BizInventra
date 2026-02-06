@@ -11,6 +11,7 @@ import { ReturnForm } from '@/components/returns/ReturnForm';
 import { Button } from '@/components/ui/Button';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { DebugInfo } from '@/components/DebugInfo';
 import { Plus, Search, LogOut, Trash2, DollarSign, ShoppingCart, TrendingUp, Eye, Edit2, Package, RotateCcw } from 'lucide-react';
 
 export default function SalesPage() {
@@ -151,10 +152,13 @@ export default function SalesPage() {
     const apiRequest = async (url: string, options?: any) => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
       const fullUrl = isNative ? `${apiUrl}${url}` : url;
+      const token = localStorage.getItem('auth_token');
+      
+      console.log('API Request:', fullUrl, 'isNative:', isNative);
+      console.log('Auth token present:', !!token);
       
       if (isNative) {
         const { CapacitorHttp } = await import('@capacitor/core');
-        const token = localStorage.getItem('auth_token');
         
         if (options?.method && options.method !== 'GET') {
           // POST, PUT, DELETE requests
@@ -194,7 +198,6 @@ export default function SalesPage() {
         }
       } else {
         // Web: use regular fetch
-        const token = localStorage.getItem('auth_token');
         const response = await fetch(fullUrl, {
           ...options,
           headers: {
@@ -353,6 +356,11 @@ export default function SalesPage() {
         // If we have cached data, keep showing it
         if (cachedTxs.length > 0 || cachedItems.length > 0 || cachedCustomers.length > 0) {
           console.log('Sales: Using cached data due to API failure');
+        } else {
+          // No cached data and API failed - show error
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          console.error('Sales: No data available. Error:', errorMsg);
+          alert(`Failed to load sales data: ${errorMsg}\n\nCheck your internet connection and try logging in again.`);
         }
       } finally {
         setIsUpdating(false);
@@ -1376,6 +1384,7 @@ export default function SalesPage() {
         )}
       </div>
     </div>
+    <DebugInfo />
     </PullToRefresh>
   );
 }
