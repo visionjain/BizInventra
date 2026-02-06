@@ -22,7 +22,10 @@ export function DebugInfo({ isVisible = false }: DebugInfoProps) {
         const { Capacitor } = await import('@capacitor/core');
         const platform = Capacitor.getPlatform();
         const isNative = platform === 'android' || platform === 'ios';
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        // Use same logic as app
+        const apiUrl = isNative 
+          ? 'https://bizinventra.vercel.app'
+          : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
         const hasAuthToken = !!localStorage.getItem('auth_token');
         
         let isOnline = navigator.onLine;

@@ -35,10 +35,10 @@ export default function LoginPage() {
         console.log('Not running in Capacitor');
       }
       
-      // Use production API for Capacitor, local API for web dev
+      // Use production API for Capacitor (hardcoded), local API for web dev
       const apiUrl = isCapacitor 
-        ? (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app')
-        : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app'));
+        ? 'https://bizinventra.vercel.app'
+        : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '' : 'https://bizinventra.vercel.app');
       
       const fullUrl = `${apiUrl}/api/auth/login`;
       console.log('Login attempt - isCapacitor:', isCapacitor, 'fullUrl:', fullUrl);

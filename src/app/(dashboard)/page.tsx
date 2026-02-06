@@ -133,12 +133,17 @@ export default function DashboardPage() {
       
       // Helper function for HTTP requests
       const apiRequest = async (url: string) => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        // CRITICAL: Hardcode production URL for native builds
+        // process.env variables are not reliable in static exports
+        const apiUrl = isNative 
+          ? 'https://bizinventra.vercel.app' 
+          : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
         const fullUrl = isNative ? `${apiUrl}${url}` : url;
         const token = localStorage.getItem('auth_token');
         
         console.log('📡 API Request:', fullUrl);
         console.log('   isNative:', isNative);
+        console.log('   apiUrl used:', apiUrl);
         console.log('   token exists:', !!token);
         console.log('   token length:', token?.length || 0);
         

@@ -27,7 +27,9 @@ export function ApiTestPanel() {
         console.log('Not Capacitor');
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+      const apiUrl = isNative 
+        ? 'https://bizinventra.vercel.app'
+        : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
       const token = localStorage.getItem('auth_token');
       
       if (!token) {

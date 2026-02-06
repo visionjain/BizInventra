@@ -73,7 +73,10 @@ export default function CustomersPage() {
       
       // Helper function for HTTP requests
       const apiRequest = async (url: string, options?: any) => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app';
+        // CRITICAL: Hardcode production URL for native builds
+        const apiUrl = isNative 
+          ? 'https://bizinventra.vercel.app' 
+          : (process.env.NEXT_PUBLIC_API_URL || 'https://bizinventra.vercel.app');
         const fullUrl = isNative ? `${apiUrl}${url}` : url;
         const token = localStorage.getItem('auth_token');
         
