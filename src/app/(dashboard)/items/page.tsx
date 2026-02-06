@@ -142,15 +142,21 @@ export default function ItemsPage() {
       };
       
       // Step 1: Load from cache immediately (native only)
+      let cachedData: any[] = [];
       if (isNative && user) {
-        const { getItemsOffline } = await import('@/lib/db/sqlite');
-        const offlineItems = await getItemsOffline(user.id);
-        setItems(offlineItems);
-        console.log('Items: Displayed cache immediately');
+        try {
+          const { getItemsOffline } = await import('@/lib/db/sqlite');
+          cachedData = await getItemsOffline(user.id);
+          if (cachedData && cachedData.length > 0) {
+            setItems(cachedData);
+            console.log('Items: Loaded', cachedData.length, 'items from cache');
+          } else {
+            console.log('Items: Cache is empty');
+          }
+        } catch (error) {
+          console.error('Items: Failed to load cache', error);
+        }
       }
-      
-      // Remove loading spinner after cache display
-      setLoading(false);
       
       // Step 2: Check connectivity
       let isOnline = navigator.onLine;
@@ -160,31 +166,44 @@ export default function ItemsPage() {
         isOnline = status.connected;
       }
       
-      // Step 3: Background sync if online
+      // Step 3: Always fetch fresh data if online (NOT background - wait for it)
       if (isOnline) {
         setIsUpdating(true);
         
         try {
-          console.log('Items: Background sync started');
+          console.log('Items: Fetching fresh data from API...');
           const response = await apiRequest('/api/items');
           
           if (response.ok) {
             const data = await response.json();
-            setItems(data.items || []);
+            const freshItems = data.items || [];
+            setItems(freshItems);
+            console.log('Items: Loaded', freshItems.length, 'items from API');
             
-            // Save to cache
-            if (isNative && data.items) {
-              const { saveItemsToCache } = await import('@/lib/db/sqlite');
-              await saveItemsToCache(user!.id, data.items);
+            // Save to cache for next time
+            if (isNative && freshItems.length > 0) {
+              try {
+                const { saveItemsToCache } = await import('@/lib/db/sqlite');
+                await saveItemsToCache(user!.id, freshItems);
+                console.log('Items: Saved', freshItems.length, 'items to cache');
+              } catch (error) {
+                console.error('Items: Failed to save to cache', error);
+              }
             }
-            
-            console.log('Items: Background sync completed');
           }
         } catch (error) {
-          console.log('Items: Background sync failed', error);
+          console.error('Items: Failed to fetch from API', error);
+          // If we have cached data, keep showing it
+          if (cachedData && cachedData.length > 0) {
+            console.log('Items: Using cached data due to API failure');
+          }
         } finally {
           setIsUpdating(false);
+          setLoading(false);
         }
+      } else {
+        console.log('Items: Offline - using cached data only');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Items: Failed to load data', error);

@@ -119,15 +119,21 @@ export default function CustomersPage() {
       };
       
       // Step 1: Load from cache immediately (native only)
+      let cachedData: any[] = [];
       if (isNative && user) {
-        const { getCustomersOffline } = await import('@/lib/db/sqlite');
-        const offlineCustomers = await getCustomersOffline(user.id);
-        setCustomers(offlineCustomers);
-        console.log('Customers: Displayed cache immediately');
+        try {
+          const { getCustomersOffline } = await import('@/lib/db/sqlite');
+          cachedData = await getCustomersOffline(user.id);
+          if (cachedData && cachedData.length > 0) {
+            setCustomers(cachedData);
+            console.log('Customers: Loaded', cachedData.length, 'customers from cache');
+          } else {
+            console.log('Customers: Cache is empty');
+          }
+        } catch (error) {
+          console.error('Customers: Failed to load cache', error);
+        }
       }
-      
-      // Remove loading spinner after cache display
-      setLoading(false);
       
       // Step 2: Check connectivity
       let isOnline = navigator.onLine;
@@ -137,31 +143,44 @@ export default function CustomersPage() {
         isOnline = status.connected;
       }
       
-      // Step 3: Background sync if online
+      // Step 3: Always fetch fresh data if online (NOT background - wait for it)
       if (isOnline) {
         setIsUpdating(true);
         
         try {
-          console.log('Customers: Background sync started');
+          console.log('Customers: Fetching fresh data from API...');
           const response = await apiRequest('/api/customers');
           
           if (response.ok) {
             const data = await response.json();
-            setCustomers(data.customers || []);
+            const freshCustomers = data.customers || [];
+            setCustomers(freshCustomers);
+            console.log('Customers: Loaded', freshCustomers.length, 'customers from API');
             
-            // Save to cache
-            if (isNative && data.customers) {
-              const { saveCustomersToCache } = await import('@/lib/db/sqlite');
-              await saveCustomersToCache(user!.id, data.customers);
+            // Save to cache for next time
+            if (isNative && freshCustomers.length > 0) {
+              try {
+                const { saveCustomersToCache } = await import('@/lib/db/sqlite');
+                await saveCustomersToCache(user!.id, freshCustomers);
+                console.log('Customers: Saved', freshCustomers.length, 'customers to cache');
+              } catch (error) {
+                console.error('Customers: Failed to save to cache', error);
+              }
             }
-            
-            console.log('Customers: Background sync completed');
           }
         } catch (error) {
-          console.log('Customers: Background sync failed', error);
+          console.error('Customers: Failed to fetch from API', error);
+          // If we have cached data, keep showing it
+          if (cachedData && cachedData.length > 0) {
+            console.log('Customers: Using cached data due to API failure');
+          }
         } finally {
           setIsUpdating(false);
+          setLoading(false);
         }
+      } else {
+        console.log('Customers: Offline - using cached data only');
+        setLoading(false);
       }
     } catch (error) {
       console.error('Customers: Failed to load data', error);

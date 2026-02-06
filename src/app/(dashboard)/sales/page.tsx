@@ -213,57 +213,64 @@ export default function SalesPage() {
     };
     
     // Load from cache immediately for instant display (native only)
+    let cachedTxs: any[] = [];
+    let cachedItems: any[] = [];
+    let cachedCustomers: any[] = [];
+    
     if (isNative && user) {
       try {
         const { getTransactionsOffline, getItemsOffline, getCustomersOffline } = await import('@/lib/db/sqlite');
         
-        const [offlineTxs, offlineItems, offlineCustomers] = await Promise.all([
+        [cachedTxs, cachedItems, cachedCustomers] = await Promise.all([
           getTransactionsOffline(user.id),
           getItemsOffline(user.id),
           getCustomersOffline(user.id)
         ]);
         
-        // Show cached data immediately
-        setTransactions(offlineTxs);
-        setItems(offlineItems);
-        setCustomers(offlineCustomers);
-        
-        // Calculate stats from cached data
-        const totalSales = offlineTxs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0);
-        const totalReceived = offlineTxs.reduce((sum, tx) => sum + tx.paymentReceived, 0);
-        const totalOutstanding = offlineTxs.reduce((sum, tx) => sum + tx.balanceAmount, 0);
-        const totalAdditionalCharges = offlineTxs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0);
-        const totalProfit = offlineTxs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0);
-        
-        setStats({
-          totalSales,
-          totalReceived,
-          totalOutstanding,
-          totalAdditionalCharges,
-          totalProfit
-        });
-        
-        setLoadedFromCache(true);
-        setLoading(false); // Stop loading spinner
+        // Show cached data immediately if available
+        if (cachedTxs.length > 0 || cachedItems.length > 0 || cachedCustomers.length > 0) {
+          setTransactions(cachedTxs);
+          setItems(cachedItems);
+          setCustomers(cachedCustomers);
+          
+          // Calculate stats from cached data
+          const totalSales = cachedTxs.reduce((sum, tx) => sum + (tx.totalAmount - (tx.totalAdditionalCharges || 0)), 0);
+          const totalReceived = cachedTxs.reduce((sum, tx) => sum + tx.paymentReceived, 0);
+          const totalOutstanding = cachedTxs.reduce((sum, tx) => sum + tx.balanceAmount, 0);
+          const totalAdditionalCharges = cachedTxs.reduce((sum, tx) => sum + (tx.totalAdditionalCharges || 0), 0);
+          const totalProfit = cachedTxs.reduce((sum, tx) => sum + (tx.totalProfit || 0), 0);
+          
+          setStats({
+            totalSales,
+            totalReceived,
+            totalOutstanding,
+            totalAdditionalCharges,
+            totalProfit
+          });
+          
+          setLoadedFromCache(true);
+          console.log('Sales: Loaded from cache -', cachedTxs.length, 'transactions,', cachedItems.length, 'items,', cachedCustomers.length, 'customers');
+        } else {
+          console.log('Sales: Cache is empty');
+        }
       } catch (error) {
-        console.log('Failed to load cached data:', error);
+        console.error('Sales: Failed to load cached data', error);
       }
     }
     
-    // Now fetch fresh data in background
+    // Check connectivity
     let isOnline = navigator.onLine;
-    
-    // Use Network plugin for more reliable detection on native
     if (isNative) {
       const { Network } = await import('@capacitor/network');
       const status = await Network.getStatus();
       isOnline = status.connected;
     }
     
-    // Try online fetch
+    // Always fetch fresh data if online (NOT background - wait for it)
     if (isOnline) {
-      setIsUpdating(true); // Show "Updating..." status
+      setIsUpdating(true);
       try {
+        console.log('Sales: Fetching fresh data from API...');
         // Build query with date range for accurate stats
         const txUrl = `/api/transactions/paginated?limit=100&startDate=${startDate}&endDate=${endDate}`;
         
@@ -277,55 +284,84 @@ export default function SalesPage() {
 
         if (txResponse.ok) {
           const txData = await txResponse.json();
-          setTransactions(txData.transactions || []);
+          const freshTxs = txData.transactions || [];
+          setTransactions(freshTxs);
+          console.log('Sales: Loaded', freshTxs.length, 'transactions from API');
+          
           // Save server-calculated stats (accurate for ALL transactions in date range)
           if (txData.stats) {
             setStats(txData.stats);
           }
           
           // Save to SQLite for offline access (native only)
-          if (isNative && txData.transactions) {
-            const { saveTransactionsToCache } = await import('@/lib/db/sqlite');
-            await saveTransactionsToCache(user!.id, txData.transactions);
+          if (isNative && freshTxs.length > 0) {
+            try {
+              const { saveTransactionsToCache } = await import('@/lib/db/sqlite');
+              await saveTransactionsToCache(user!.id, freshTxs);
+              console.log('Sales: Saved', freshTxs.length, 'transactions to cache');
+            } catch (error) {
+              console.error('Sales: Failed to save transactions to cache', error);
+            }
           }
         }
 
         if (returnsResponse.ok) {
           const returnsData = await returnsResponse.json();
           setReturns(returnsData.returns || []);
+          console.log('Sales: Loaded', (returnsData.returns || []).length, 'returns from API');
         }
 
         if (itemsResponse.ok) {
           const itemsData = await itemsResponse.json();
-          setItems(itemsData.items || []);
+          const freshItems = itemsData.items || [];
+          setItems(freshItems);
+          console.log('Sales: Loaded', freshItems.length, 'items from API');
           
           // Save items to SQLite for offline access (native only)
-          if (isNative && itemsData.items) {
-            const { saveItemsToCache } = await import('@/lib/db/sqlite');
-            await saveItemsToCache(user!.id, itemsData.items);
+          if (isNative && freshItems.length > 0) {
+            try {
+              const { saveItemsToCache } = await import('@/lib/db/sqlite');
+              await saveItemsToCache(user!.id, freshItems);
+              console.log('Sales: Saved', freshItems.length, 'items to cache');
+            } catch (error) {
+              console.error('Sales: Failed to save items to cache', error);
+            }
           }
         }
 
         if (customersResponse.ok) {
           const customersData = await customersResponse.json();
-          setCustomers(customersData.customers || []);
+          const freshCustomers = customersData.customers || [];
+          setCustomers(freshCustomers);
+          console.log('Sales: Loaded', freshCustomers.length, 'customers from API');
           
           // Save customers to SQLite for offline access (native only)
-          if (isNative && customersData.customers) {
-            const { saveCustomersToCache } = await import('@/lib/db/sqlite');
-            await saveCustomersToCache(user!.id, customersData.customers);
+          if (isNative && freshCustomers.length > 0) {
+            try {
+              const { saveCustomersToCache } = await import('@/lib/db/sqlite');
+              await saveCustomersToCache(user!.id, freshCustomers);
+              console.log('Sales: Saved', freshCustomers.length, 'customers to cache');
+            } catch (error) {
+              console.error('Sales: Failed to save customers to cache', error);
+            }
           }
         }
+        
         setLoadedFromCache(false);
-        setIsUpdating(false); // Done updating
       } catch (error) {
-        console.log('Online fetch failed:', error);
-        setIsUpdating(false); // Done updating
-        // Already showing cached data, so don't show error
+        console.error('Sales: Failed to fetch from API', error);
+        // If we have cached data, keep showing it
+        if (cachedTxs.length > 0 || cachedItems.length > 0 || cachedCustomers.length > 0) {
+          console.log('Sales: Using cached data due to API failure');
+        }
+      } finally {
+        setIsUpdating(false);
+        setLoading(false);
       }
+    } else {
+      console.log('Sales: Offline - using cached data only');
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const handleSubmit = async (formData: any) => {
